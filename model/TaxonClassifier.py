@@ -52,7 +52,22 @@ class TaxonModel(nn.Module):
         emb = emb.permute(1, 0, 2)  # [seq_len,batch_size,emb_size]
         h0 = torch.zeros(self.num_layers * 2, len(x), self.hidden_size)
         c0 = torch.zeros(self.num_layers * 2, len(x), self.hidden_size)
-        outputs, (h, c) = self.seq_encoder(emb, h0, c0) # outputs: [seq_len,batch_size,hidden_size*2]
-        outputs = outputs.permute(1,0,2) # [batch_size,seq_len,hidden_size*2]
-        key = torch.tanh(torch.matmul(outputs,self.key_matrix)) # [seq_len,batch_size,hidden_size*2]
-        query = F.softmax(torch.matmul(key,self.query),dim=1)
+        outputs, (h, c) = self.seq_encoder(
+            emb, h0, c0
+        )  # outputs: [seq_len,batch_size,hidden_size*2]
+        outputs = outputs.permute(1, 0, 2)  # [batch_size,seq_len,hidden_size*2]
+        key = torch.tanh(
+            torch.matmul(outputs, self.key_matrix)
+        )  # [seq_len,batch_size,hidden_size*2]
+
+        # torch.matmul(key,self.query)的结果为 [batch_size,seq_len]因为做的是内积
+        # 再对第1维做softmax
+        score = F.softmax(torch.matmul(key, self.query), dim=1).unsqueeze(
+            -1
+        )  # [batch_size,seq_len,1]
+
+        out = outputs * score  # [batch_size,seq_len,hidden_size*2]
+        out = torch.sum(out, dim=1)  # [batch_size,hidden_size*2]
+        out = F.gelu(out)
+        final_outputs = self.decoder(out)
+        return final_outputs

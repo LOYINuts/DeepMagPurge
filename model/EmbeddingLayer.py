@@ -13,7 +13,7 @@ class KmerEmbedding(nn.Module):
             embedding_dim (int): 模型维度
         """
         super(KmerEmbedding, self).__init__()
-        self.encoder = nn.Embedding(vocab_size, embedding_dim)
+        self.encoder = nn.Embedding(vocab_size, embedding_dim,padding_idx=0)
 
     def forward(self, x):
         return self.encoder(x)
