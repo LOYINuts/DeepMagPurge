@@ -1,4 +1,4 @@
-import numpy as np
+import torch
 
 
 def TransferKmer2Idx(word_file_path: str):
@@ -80,7 +80,7 @@ def kmer2index(k_mer: str, word2idx: dict):
     return idx
 
 
-def seq2kmer(seq: str, k: int, word2idx: dict):
+def seq2kmer(seq: str, k: int, word2idx: dict, max_len: int):
     """将序列转换为kmer列表
 
     Args:
@@ -96,7 +96,9 @@ def seq2kmer(seq: str, k: int, word2idx: dict):
         k_mer = seq[i : i + k]
         idx = kmer2index(k_mer, word2idx)
         kmer_list.append(idx)
-    kmer_array = np.array(kmer_list)
+    # 不足长度进行padding
+    while len(kmer_list) < max_len:
+        kmer_list.append(0)
+    kmer_list = kmer_list[:max_len]
+    kmer_array = torch.tensor(kmer_list)
     return kmer_array
-
-

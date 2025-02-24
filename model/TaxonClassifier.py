@@ -1,9 +1,7 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
-import LSTMLayer
-import EmbeddingLayer
-
+from . import LSTMLayer,EmbeddingLayer
 
 class TaxonModel(nn.Module):
     def __init__(
@@ -37,7 +35,7 @@ class TaxonModel(nn.Module):
         self.query = nn.Parameter(torch.Tensor(hidden_size * 2))
         # 初始化矩阵参数
         nn.init.uniform_(self.key_matrix, -0.1, 0.1)
-        nn.init.uniform_(self.query_matrix_matrix, -0.1, 0.1)
+        nn.init.uniform_(self.query, -0.1, 0.1)
         # 解码器，输出class
         self.decoder = nn.Sequential(
             nn.Linear(hidden_size * 2, hidden_size),
@@ -50,8 +48,8 @@ class TaxonModel(nn.Module):
     def forward(self, x):
         emb = self.embedding(x)  # [batch_size,seq_len,emb_size]
         emb = emb.permute(1, 0, 2)  # [seq_len,batch_size,emb_size]
-        h0 = torch.zeros(self.num_layers * 2, len(x), self.hidden_size)
-        c0 = torch.zeros(self.num_layers * 2, len(x), self.hidden_size)
+        h0 = torch.zeros(self.num_layers * 2, len(x), self.hidden_size).to(device=self.device)
+        c0 = torch.zeros(self.num_layers * 2, len(x), self.hidden_size).to(device=self.device)
         outputs, (h, c) = self.seq_encoder(
             emb, h0, c0
         )  # outputs: [seq_len,batch_size,hidden_size*2]

@@ -1,6 +1,4 @@
 import torch.nn as nn
-import torch
-
 
 class SeqEncoder(nn.Module):
     def __init__(
