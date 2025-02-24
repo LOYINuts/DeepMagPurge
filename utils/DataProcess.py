@@ -1,65 +1,102 @@
-import os
-import argparse
-import sys
+import numpy as np
 
 
-def process_fasta(input_file: str, output_dir: str):
-    """处理Progenomes数据，将其根据基因组拆分为单个文件(即，属于相同基因组的会被放在同一个文件)
+def TransferKmer2Idx(word_file_path: str):
+    """词典生成
 
     Args:
-        input_file: 输入的progenome3fasta文件
-        output_dir: 输出的文件夹
-    Return:
-        无，会在输出文件夹产生所有基因组的fasta文件
+        word_file_path (str): 文件路径，即所有kmer的文件路径
+
+    Returns:
+        dict: 词典
     """
-    current_genome = None
-    current_file = None
-    os.makedirs(output_dir, exist_ok=True)
-    with open(input_file, "r") as f_in:
-        for line in f_in:
-            if line.startswith(">"):
-                # 处理头部行
-                header = line[1:].strip()
-                parts = header.rsplit(" ")
-                prefix = parts[0]
-                prefix_parts = prefix.rsplit("_")
-                genome = prefix_parts[0] + prefix_parts[1]
-                if genome != current_genome:
-                    # 关闭当前文件
-                    print(genome)
-                    if current_file is not None:
-                        current_file.close()
-                    # 打开新文件
-                    filename = f"{genome}.fasta"
-                    output_path = os.path.join(output_dir,filename)
-                    current_file = open(output_path, "a")
-                    current_genome = genome
-
-                # 写入当前头部行
-                if current_file is not None:
-                    current_file.write(line)
-            else:
-                # 写入序列行
-                if current_file is not None:
-                    current_file.write(line)
-
-    # 关闭最后一个打开的文件
-    if current_file is not None:
-        current_file.close()
+    with open(word_file_path, "r") as fin:
+        word2idx = {}
+        idx = 1
+        for line in fin:
+            word = line.strip()
+            word2idx[word] = idx
+            idx += 1
+    return word2idx
 
 
-if __name__ == "__main__":
-    # 配置命令行参数
-    parser = argparse.ArgumentParser(description='Split FASTA by genome prefix')
-    parser.add_argument('-i', '--input', required=True, help='Input FASTA file')
-    parser.add_argument('-o', '--output', default='output', help='Output directory (default: ./output)')
-    args = parser.parse_args()
+def TransferTaxon2Idx(taxon_file_path: str) -> dict:
+    """物种词典
 
-    # 验证输入文件是否存在
-    if not os.path.exists(args.input):
-        print(f"Error: Input file '{args.input}' not found")
-        sys.exit(1)
+    Args:
+        taxon_file_path (str): 物种文件
 
-    # 执行处理
-    process_fasta(args.input, args.output)
-    print(f"Processing completed. Results saved to: {os.path.abspath(args.output)}")
+    Returns:
+        dict: 物种分类词典
+    """
+    with open(taxon_file_path, "r") as fin:
+        taxon2idx = {}
+        for line in fin:
+            line = line.strip()
+            splits = line.split()
+            taxon, idx = splits[0], splits[1]
+            taxon2idx[taxon] = idx
+
+    return taxon2idx
+
+
+def ReverseComplementSeq(seq: str):
+    """将序列转为反向互补链，在生物中反向互补链就是序列本身，A<->T,C<->G,所有的模糊的碱基都转为N
+
+    Args:
+        seq (str): kmer的序列
+    """
+    translation_dict = {
+        "A": "T",
+        "T": "A",
+        "C": "G",
+        "G": "C",
+        "N": "N",
+        "K": "N",
+        "M": "N",
+        "R": "N",
+        "Y": "N",
+        "S": "N",
+        "W": "N",
+        "B": "N",
+        "V": "N",
+        "H": "N",
+        "D": "N",
+        "X": "N",
+    }
+    letters = list(seq)
+    letters = [translation_dict[base] for base in letters]
+    return "".join(letters)[::-1]
+
+
+def kmer2index(k_mer: str, word2idx: dict):
+    """Converts k-mer to index to the embedding layer"""
+    if k_mer in word2idx:
+        idx = word2idx[k_mer]
+    elif ReverseComplementSeq(k_mer) in word2idx:
+        idx = word2idx[ReverseComplementSeq(k_mer)]
+    else:
+        idx = word2idx["<unk>"]
+    return idx
+
+
+def seq2kmer(seq: str, k: int, word2idx: dict):
+    """将序列转换为kmer列表
+
+    Args:
+        seq (str): 序列
+        k (int): kmer的k值
+        word2idx (dict): kmer词典
+    """
+    length = len(seq)
+    kmer_list = []
+    for i in range(0, length):
+        if i + k >= length + 1:
+            break
+        k_mer = seq[i : i + k]
+        idx = kmer2index(k_mer, word2idx)
+        kmer_list.append(idx)
+    kmer_array = np.array(kmer_list)
+    return kmer_array
+
+
