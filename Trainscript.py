@@ -39,7 +39,7 @@ def train(
             )
             if step == len(processBar) - 1:
                 correct, total_loss = 0, 0
-                net.trian(False)
+                net.train(False)
                 for test_seq, test_labels in testDataLoader:
                     test_seq = test_seq.to(device)
                     test_labels = test_labels.to(device)
