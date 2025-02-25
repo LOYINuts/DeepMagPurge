@@ -49,11 +49,12 @@ class PositionEmbedding(nn.Module):
         ).unsqueeze(dim=0)
         self.encoding[:, 0::2] = torch.sin(pos * frequencies)
         self.encoding[:, 1::2] = torch.cos(pos * frequencies)
+        self.encoding = self.encoding.unsqueeze(0)
 
     def forward(self, x):
         # 获取批量大小和序列长度
         seq_len = x.size(1)
-        return self.encoding[:, :seq_len]
+        return self.encoding[:, :seq_len,:]
 
 
 class FullEmbedding(nn.Module):

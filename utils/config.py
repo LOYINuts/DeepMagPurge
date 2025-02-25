@@ -7,8 +7,8 @@ class AllConfig:
     DataPath = "E:/StudyData/DMPdata/label_data"
     save_path = "./checkpoints"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    vocab_size = 32897
-    embedding_size = 32898
+    vocab_size = 32898
+    embedding_size = 100
     hidden_size = 300
     num_layers = 2
     num_class = 2945
