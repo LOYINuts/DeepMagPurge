@@ -6,6 +6,24 @@ import random
 from tqdm import tqdm
 import torch
 
+def ReservoirSample(records, k: int):
+    """蓄水池抽样
+
+    Args:
+        records : SeqIO.parse返回的迭代器
+        k (int): 采样数
+    """
+    samples = []
+    for i, item in enumerate(records):
+        if i < k:
+            samples.append(item)
+        else:
+            # 生成0到i的随机整数
+            j = random.randint(0, i)
+            if j < k:
+                samples[j] = item
+        # 如果迭代器元素不足k个，返回全部
+    return samples[:k] if k <= len(samples) else samples
 
 def Read_Parser(record: any):
     """将SeqIO.parse的返回的一个rec获取其序列和label
@@ -60,9 +78,9 @@ class AllDataset:
         for _, file in enumerate(processBar):
             full_path = os.path.join(input_path, file)
             with open(full_path, "r") as handle:
-                records = list(SeqIO.parse(handle, "fasta"))
-                train_samples = random.choices(records, k=self.samples)
-                test_samples = random.choices(records, k=int(self.samples / 2))
+                records = SeqIO.parse(handle, "fasta")
+                train_samples = ReservoirSample(records, k=self.samples)
+                test_samples = ReservoirSample(records, k=int(self.samples / 2))
                 # 训练集
                 for rec in train_samples:
                     seq, label_id = Read_Parser(rec)
