@@ -8,7 +8,7 @@ class AllConfig:
     save_path = "./checkpoints"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     vocab_size = 32898
-    embedding_size = 200
+    embedding_size = 150
     hidden_size = 300
     num_layers = 2
     num_class = 2945
