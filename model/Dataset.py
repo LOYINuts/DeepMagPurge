@@ -62,7 +62,7 @@ class AllDataset:
             with open(full_path, "r") as handle:
                 records = list(SeqIO.parse(handle, "fasta"))
                 train_samples = random.choices(records, k=self.samples)
-                test_samples = random.choices(records, k=self.samples / 2)
+                test_samples = random.choices(records, k=int(self.samples / 2))
                 # 训练集
                 for rec in train_samples:
                     seq, label_id = Read_Parser(rec)
