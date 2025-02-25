@@ -91,8 +91,10 @@ def main():
     conf = config.AllConfig
     model_path = os.path.join(conf.save_path, "taxonclassifier.pt")
     if os.path.exists(model_path) is True:
+        print("Loading existing model......")
         model = torch.load(model_path)
     else:
+        print("No existing model. Creating new model......")
         model = TaxonClassifier.TaxonModel(
             vocab_size=conf.vocab_size,
             embedding_size=conf.embedding_size,
