@@ -105,19 +105,15 @@ def main():
         )
     print("Loading Dict Files......")
     all_dict = Dataset.Dictionary(conf.KmerFilePath, conf.TaxonFilePath)
-    print("Loading train dataset......")
-    train_dataset = Dataset.SeqDataset(
-        conf.DataPath, conf.max_len, all_dict, conf.samples, conf.kmer
-    )
-    print("Loading test dataset......")
-    test_dataset = Dataset.SeqDataset(
+    print("Loading dataset......")
+    all_dataset = Dataset.AllDataset(
         conf.DataPath, conf.max_len, all_dict, conf.samples, conf.kmer
     )
     train_dataloader = DataLoader(
-        dataset=train_dataset, batch_size=conf.batch_size, shuffle=True
+        dataset=all_dataset.train_dataset, batch_size=conf.batch_size, shuffle=True
     )
     test_dataloader = DataLoader(
-        dataset=test_dataset, batch_size=conf.batch_size, shuffle=False
+        dataset=all_dataset.test_dataset, batch_size=conf.batch_size, shuffle=False
     )
     lossF = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=conf.lr)
