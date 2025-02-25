@@ -65,9 +65,9 @@ def train(
                     )
                 )
                 if not best_test_loss or test_loss < best_test_loss:
-                    model_save_path = os.path.join(save_path, "taxonclassifier.pt")
+                    model_save_path = os.path.join(save_path, "taxonclassifier.pth")
                     with open(model_save_path, "wb") as f:
-                        torch.save(net, f)
+                        torch.save(net.state_dict(), f)
                     best_test_loss = test_loss
         processBar.close()
 
@@ -89,22 +89,23 @@ def train(
 
 def main():
     conf = config.AllConfig
-    model_path = os.path.join(conf.save_path, "taxonclassifier.pt")
+    model_path = os.path.join(conf.save_path, "taxonclassifier.pth")
+    model = TaxonClassifier.TaxonModel(
+        vocab_size=conf.vocab_size,
+        embedding_size=conf.embedding_size,
+        hidden_size=conf.hidden_size,
+        device=conf.device,
+        max_len=conf.max_len,
+        num_layers=conf.num_layers,
+        num_class=conf.num_class,
+        drop_out=conf.drop_prob,
+    )
     if os.path.exists(model_path) is True:
-        print("Loading existing model......")
-        model = torch.load(model_path)
+        print("Loading existing model state......")
+        state_dict = torch.load(model_path)
+        model.load_state_dict(state_dict)
     else:
-        print("No existing model. Creating new model......")
-        model = TaxonClassifier.TaxonModel(
-            vocab_size=conf.vocab_size,
-            embedding_size=conf.embedding_size,
-            hidden_size=conf.hidden_size,
-            device=conf.device,
-            max_len=conf.max_len,
-            num_layers=conf.num_layers,
-            num_class=conf.num_class,
-            drop_out=conf.drop_prob,
-        )
+        print("No existing model state......")
     print("Loading Dict Files......")
     all_dict = Dataset.Dictionary(conf.KmerFilePath, conf.TaxonFilePath)
     print("Loading dataset......")
