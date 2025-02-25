@@ -40,14 +40,15 @@ def train(
             if step == len(processBar) - 1:
                 correct, total_loss = 0, 0
                 net.train(False)
-                for test_seq, test_labels in testDataLoader:
-                    test_seq = test_seq.to(device)
-                    test_labels = test_labels.to(device)
-                    test_out = net(test_seq)
-                    tloss = lossF(test_out, test_labels)
-                    predictions = torch.argmax(test_out, dim=1)
-                    total_loss += tloss
-                    correct += torch.sum(predictions == test_labels)
+                with torch.no_grad():
+                    for test_seq, test_labels in testDataLoader:
+                        test_seq = test_seq.to(device)
+                        test_labels = test_labels.to(device)
+                        test_out = net(test_seq)
+                        tloss = lossF(test_out, test_labels)
+                        predictions = torch.argmax(test_out, dim=1)
+                        total_loss += tloss
+                        correct += torch.sum(predictions == test_labels)
                 test_acc = correct / (batch_size * len(testDataLoader))
                 test_loss = total_loss / len(testDataLoader)
                 history["Test Accuracy"].append(test_acc.item())
