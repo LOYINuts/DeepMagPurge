@@ -65,11 +65,12 @@ def train(
                     )
                 )
                 if not best_test_loss or test_loss < best_test_loss:
-                    model_save_path = os.path.join(save_path, "taxonclassifier.pth")
-                    with open(model_save_path, "wb") as f:
-                        torch.save(net.state_dict(), f)
                     best_test_loss = test_loss
+        model_save_path = os.path.join(save_path, "taxonclassifier.pth")
+        with open(model_save_path, "wb") as f:
+            torch.save(net.state_dict(), f)
         processBar.close()
+
 
     plt.plot(history["Test Loss"], label="Test Loss")
     plt.legend(loc="best")
