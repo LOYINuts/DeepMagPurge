@@ -13,17 +13,25 @@ def ReservoirSample(records, k: int):
         records : SeqIO.parse返回的迭代器
         k (int): 采样数
     """
-    samples = []
+    train_samples = []
+    test_samples = []
+    tk = int(k/2)
     for i, item in enumerate(records):
         if i < k:
-            samples.append(item)
-        else:
+            train_samples.append(item)
+        if i < tk:
+            test_samples.append(item)
+        if i > k:
             # 生成0到i的随机整数
             j = random.randint(0, i)
             if j < k:
-                samples[j] = item
+                train_samples[j] = item
+        if i > tk:
+            j = random.randint(0,i)
+            if j < tk:
+                test_samples[j] = item
         # 如果迭代器元素不足k个，返回全部
-    return samples[:k] if k <= len(samples) else samples
+    return train_samples,test_samples
 
 def Read_Parser(record: any):
     """将SeqIO.parse的返回的一个rec获取其序列和label
@@ -79,8 +87,7 @@ class AllDataset:
             full_path = os.path.join(input_path, file)
             with open(full_path, "r") as handle:
                 records = SeqIO.parse(handle, "fasta")
-                train_samples = ReservoirSample(records, k=self.samples)
-                test_samples = ReservoirSample(records, k=int(self.samples / 2))
+                train_samples,test_samples = ReservoirSample(records, k=self.samples)
                 # 训练集
                 for rec in train_samples:
                     seq, label_id = Read_Parser(rec)
