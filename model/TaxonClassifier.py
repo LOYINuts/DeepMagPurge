@@ -47,15 +47,16 @@ class TaxonModel(nn.Module):
         )
 
     def forward(self, x):
+        bs = len(x)
         x = self.embedding(x)  # [batch_size,seq_len,emb_size]
         x = x.permute(1, 0, 2)  # [seq_len,batch_size,emb_size]
-        h0 = torch.zeros(self.num_layers * 2, len(x), self.hidden_size).to(
+        h0 = torch.zeros(self.num_layers * 2, bs, self.hidden_size).to(
             device=self.device
         )
-        c0 = torch.zeros(self.num_layers * 2, len(x), self.hidden_size).to(
+        c0 = torch.zeros(self.num_layers * 2, bs, self.hidden_size).to(
             device=self.device
         )
-        x, (h, c) = self.seq_encoder(
+        x, (_, _) = self.seq_encoder(
             x, h0, c0
         )  # x: [seq_len,batch_size,hidden_size*2]
         x = x.permute(1, 0, 2)  # [batch_size,seq_len,hidden_size*2]
