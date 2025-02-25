@@ -1,7 +1,8 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
-from . import LSTMLayer,EmbeddingLayer
+from . import LSTMLayer, EmbeddingLayer
+
 
 class TaxonModel(nn.Module):
     def __init__(
@@ -46,16 +47,20 @@ class TaxonModel(nn.Module):
         )
 
     def forward(self, x):
-        emb = self.embedding(x)  # [batch_size,seq_len,emb_size]
-        emb = emb.permute(1, 0, 2)  # [seq_len,batch_size,emb_size]
-        h0 = torch.zeros(self.num_layers * 2, len(x), self.hidden_size).to(device=self.device)
-        c0 = torch.zeros(self.num_layers * 2, len(x), self.hidden_size).to(device=self.device)
-        outputs, (h, c) = self.seq_encoder(
-            emb, h0, c0
-        )  # outputs: [seq_len,batch_size,hidden_size*2]
-        outputs = outputs.permute(1, 0, 2)  # [batch_size,seq_len,hidden_size*2]
+        x = self.embedding(x)  # [batch_size,seq_len,emb_size]
+        x = x.permute(1, 0, 2)  # [seq_len,batch_size,emb_size]
+        h0 = torch.zeros(self.num_layers * 2, len(x), self.hidden_size).to(
+            device=self.device
+        )
+        c0 = torch.zeros(self.num_layers * 2, len(x), self.hidden_size).to(
+            device=self.device
+        )
+        x, (h, c) = self.seq_encoder(
+            x, h0, c0
+        )  # x: [seq_len,batch_size,hidden_size*2]
+        x = x.permute(1, 0, 2)  # [batch_size,seq_len,hidden_size*2]
         key = torch.tanh(
-            torch.matmul(outputs, self.key_matrix)
+            torch.matmul(x, self.key_matrix)
         )  # [seq_len,batch_size,hidden_size*2]
 
         # torch.matmul(key,self.query)的结果为 [batch_size,seq_len]因为做的是内积
@@ -64,8 +69,8 @@ class TaxonModel(nn.Module):
             -1
         )  # [batch_size,seq_len,1]
 
-        out = outputs * score  # [batch_size,seq_len,hidden_size*2]
-        out = torch.sum(out, dim=1)  # [batch_size,hidden_size*2]
-        out = F.gelu(out)
-        final_outputs = self.decoder(out)
+        x = x * score  # [batch_size,seq_len,hidden_size*2]
+        x = torch.sum(x, dim=1)  # [batch_size,hidden_size*2]
+        x = F.gelu(x)
+        final_outputs = self.decoder(x)
         return final_outputs
