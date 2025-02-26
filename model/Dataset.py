@@ -1,37 +1,10 @@
 from torch.utils.data.dataset import Dataset
 from utils import DataProcess
-import os
 from Bio import SeqIO
-import random
+import numpy as np
 from tqdm import tqdm
 import torch
 
-def ReservoirSample(records, k: int):
-    """蓄水池抽样
-
-    Args:
-        records : SeqIO.parse返回的迭代器
-        k (int): 采样数
-    """
-    train_samples = []
-    test_samples = []
-    tk = int(k/2)
-    for i, item in enumerate(records):
-        if i < k:
-            train_samples.append(item)
-        if i < tk:
-            test_samples.append(item)
-        if i > k:
-            # 生成0到i的随机整数
-            j = random.randint(0, i)
-            if j < k:
-                train_samples[j] = item
-        if i > tk:
-            j = random.randint(0,i)
-            if j < tk:
-                test_samples[j] = item
-        # 如果迭代器元素不足k个，返回全部
-    return train_samples,test_samples
 
 def Read_Parser(record: any):
     """将SeqIO.parse的返回的一个rec获取其序列和label
@@ -59,52 +32,39 @@ class AllDataset:
         input_path: str,
         max_len: int,
         all_dict: Dictionary,
-        samples_perfile: int,
         k: int,
     ):
         self.max_len = max_len
         self.mydict = all_dict
         self.k = k
-        self.samples = samples_perfile
-        train_data, train_label, test_data, test_label = self.Convert_files2data(
+        train_data, train_label, test_data, test_label = self.ConvertFile2Data(
             input_path
         )
         self.train_dataset = SeqDataset(train_data, train_label)
         self.test_dataset = SeqDataset(test_data, test_label)
 
-    def Convert_files2data(
-        self,
-        input_path: str,
-    ):
-        file_list = os.listdir(input_path)
+    def ConvertFile2Data(self, input_path: str):
         Train_DataTensor = []
         Train_Labels = []
         Test_DataTensor = []
         Test_Labels = []
-        print("Processing files.....")
-        processBar = tqdm(file_list, "处理进度")
-        for _, file in enumerate(processBar):
-            full_path = os.path.join(input_path, file)
-            with open(full_path, "r") as handle:
-                records = SeqIO.parse(handle, "fasta")
-                train_samples,test_samples = ReservoirSample(records, k=self.samples)
-                # 训练集
-                for rec in train_samples:
-                    seq, label_id = Read_Parser(rec)
-                    kmer_tensor = DataProcess.seq2kmer(
-                        seq, self.k, self.mydict.kmer2idx, self.max_len
-                    )
-                    Train_DataTensor.append(kmer_tensor)
-                    Train_Labels.append(label_id)
-                # 测试集
-                for rec in test_samples:
-                    seq, label_id = Read_Parser(rec)
-                    kmer_tensor = DataProcess.seq2kmer(
-                        seq, self.k, self.mydict.kmer2idx, self.max_len
-                    )
-                    Test_DataTensor.append(kmer_tensor)
-                    Test_Labels.append(label_id)
+        print("Extracting data......")
+        with open(input_path, "r") as handle:
+            records = list(SeqIO.parse(handle, "fasta"))
+            processBar = tqdm(records, desc="转换序列")
+            for rec in processBar:
+                seq, label_id = Read_Parser(rec)
+                kmer_tensor = DataProcess.seq2kmer(
+                    seq, self.k, self.mydict.kmer2idx, self.max_len
+                )
+                Train_DataTensor.append(kmer_tensor)
+                Train_Labels.append(label_id)
 
+        test_index = np.random.randint(
+            low=0, high=len(Train_DataTensor), size=int(len(Train_DataTensor) / 10)
+        )
+        Test_DataTensor = Train_DataTensor[test_index]
+        Test_Labels = Test_Labels[test_index]
         Train_DataTensor = torch.stack(Train_DataTensor)
         Test_DataTensor = torch.stack(Test_DataTensor)
         Train_Labels = torch.tensor(Train_Labels)

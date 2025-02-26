@@ -71,7 +71,6 @@ def train(
             torch.save(net.state_dict(), f)
         processBar.close()
 
-
     plt.plot(history["Test Loss"], label="Test Loss")
     plt.legend(loc="best")
     plt.grid(True)
@@ -103,21 +102,23 @@ def main():
     )
     if os.path.exists(model_path) is True:
         print("Loading existing model state......")
-        state_dict = torch.load(model_path)
+        state_dict = torch.load(model_path, weights_only=True)
         model.load_state_dict(state_dict)
     else:
         print("No existing model state......")
     print("Loading Dict Files......")
     all_dict = Dataset.Dictionary(conf.KmerFilePath, conf.TaxonFilePath)
     print("Loading dataset......")
-    all_dataset = Dataset.AllDataset(
-        conf.DataPath, conf.max_len, all_dict, conf.samples, conf.kmer
-    )
+    all_dataset = Dataset.AllDataset(conf.DataPath, conf.max_len, all_dict, conf.kmer)
     train_dataloader = DataLoader(
-        dataset=all_dataset.train_dataset, batch_size=conf.batch_size, shuffle=True
+        dataset=all_dataset.train_dataset,
+        batch_size=conf.batch_size,
+        shuffle=True,
     )
     test_dataloader = DataLoader(
-        dataset=all_dataset.test_dataset, batch_size=conf.batch_size, shuffle=False
+        dataset=all_dataset.test_dataset,
+        batch_size=conf.batch_size,
+        shuffle=False,
     )
     lossF = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=conf.lr)
