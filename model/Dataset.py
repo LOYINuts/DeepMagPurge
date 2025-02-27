@@ -63,12 +63,12 @@ class AllDataset:
         test_index = np.random.randint(
             low=0, high=len(Train_DataTensor), size=int(len(Train_DataTensor) / 10)
         )
-        Test_DataTensor = Train_DataTensor[test_index]
-        Test_Labels = Test_Labels[test_index]
+        test_index = torch.tensor(test_index)
+        print(test_index)
         Train_DataTensor = torch.stack(Train_DataTensor)
-        Test_DataTensor = torch.stack(Test_DataTensor)
         Train_Labels = torch.tensor(Train_Labels)
-        Test_Labels = torch.tensor(Test_Labels)
+        Test_DataTensor = Train_DataTensor[test_index]
+        Test_Labels = Train_Labels[test_index]
         return Train_DataTensor, Train_Labels, Test_DataTensor, Test_Labels
 
 
