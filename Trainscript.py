@@ -100,10 +100,10 @@ def main():
         num_class=conf.num_class,
         drop_out=conf.drop_prob,
     )
+    print(model.state_dict())
     if os.path.exists(model_path) is True:
         print("Loading existing model state......")
-        state_dict = torch.load(model_path, weights_only=True)
-        model.load_state_dict(state_dict)
+        model.load_state_dict(torch.load(model_path))
     else:
         print("No existing model state......")
     print("Loading Dict Files......")
@@ -121,8 +121,8 @@ def main():
         shuffle=False,
     )
     lossF = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=conf.lr)
     model = model.to(device=conf.device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=conf.lr)
     print("Start Training")
     train(
         epochs=conf.epoch,
