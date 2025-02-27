@@ -100,7 +100,7 @@ def main():
         num_class=conf.num_class,
         drop_out=conf.drop_prob,
     )
-    print(model.state_dict())
+    # print(model.state_dict())
     if os.path.exists(model_path) is True:
         print("Loading existing model state......")
         model.load_state_dict(torch.load(model_path))
