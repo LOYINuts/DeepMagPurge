@@ -2,7 +2,6 @@ from utils import config
 from tqdm import tqdm
 import torch
 import os
-import matplotlib.pyplot as plt
 from torch.utils.data.dataloader import DataLoader
 from model import TaxonClassifier, Dataset
 
@@ -19,7 +18,6 @@ def train(
     save_path: str,
 ):
     best_test_loss = None
-    history = {"Test Loss": [], "Test Accuracy": []}
     for epoch in range(1, epochs + 1):
         processBar = tqdm(trainDataLoader, unit="step")
         net.train(True)
@@ -51,8 +49,6 @@ def train(
                         correct += torch.sum(predictions == test_labels)
                 test_acc = correct / (batch_size * len(testDataLoader))
                 test_loss = total_loss / len(testDataLoader)
-                history["Test Accuracy"].append(test_acc.item())
-                history["Test Loss"].append(test_loss.item())
                 processBar.set_description(
                     "[%d/%d] Loss: %.4f, Acc: %.4f, Test Loss: %.4f, Test Acc: %.4f"
                     % (
@@ -71,21 +67,6 @@ def train(
             checkpoints = {"net":net.state_dict(),"optimizer":optimizer.state_dict()}
             torch.save(checkpoints,f)
         processBar.close()
-
-    plt.plot(history["Test Loss"], label="Test Loss")
-    plt.legend(loc="best")
-    plt.grid(True)
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.show()
-
-    # 对验证集准确率进行可视化
-    plt.plot(history["Test Accuracy"], color="red", label="Test Accuracy")
-    plt.legend(loc="best")
-    plt.grid(True)
-    plt.xlabel("Epoch")
-    plt.ylabel("Accuracy")
-    plt.show()
 
 
 def main():
