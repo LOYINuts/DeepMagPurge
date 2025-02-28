@@ -85,7 +85,7 @@ def main():
     optimizer = torch.optim.Adam(model.parameters(), lr=conf.lr)
     # print(model.state_dict())
     if os.path.exists(model_path) is True:
-        print("Loading existing model state......")
+        print("Loading existing model state_dict......")
         checkpoint = torch.load(model_path)
         model.load_state_dict(checkpoint['net'])
         optimizer.load_state_dict(checkpoint['optimizer'])
