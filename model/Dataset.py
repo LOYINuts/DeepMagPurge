@@ -5,6 +5,8 @@ import numpy as np
 from tqdm import tqdm
 import torch
 
+RANDOM_SEED = 20030510
+
 
 def Read_Parser(record: any):
     """将SeqIO.parse的返回的一个rec获取其序列和label
@@ -60,8 +62,13 @@ class AllDataset:
                 Train_DataTensor.append(kmer_tensor)
                 Train_Labels.append(label_id)
 
+        np.random.seed(RANDOM_SEED)
         test_index = np.random.randint(
-            low=0, high=len(Train_DataTensor), size=int(len(Train_DataTensor) / 10)
+            low=0,
+            high=len(Train_DataTensor),
+            size=int(
+                len(Train_DataTensor) / 10,
+            ),
         )
         test_index = torch.tensor(test_index)
         Train_DataTensor = torch.stack(Train_DataTensor)

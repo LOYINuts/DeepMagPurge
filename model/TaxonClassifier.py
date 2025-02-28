@@ -56,9 +56,7 @@ class TaxonModel(nn.Module):
         c0 = torch.zeros(self.num_layers * 2, bs, self.hidden_size).to(
             device=self.device
         )
-        x, (_, _) = self.seq_encoder(
-            x, h0, c0
-        )  # x: [seq_len,batch_size,hidden_size*2]
+        x, (_, _) = self.seq_encoder(x, h0, c0)  # x: [seq_len,batch_size,hidden_size*2]
         x = x.permute(1, 0, 2)  # [batch_size,seq_len,hidden_size*2]
         key = torch.tanh(
             torch.matmul(x, self.key_matrix)

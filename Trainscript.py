@@ -66,9 +66,10 @@ def train(
                 )
                 if not best_test_loss or test_loss < best_test_loss:
                     best_test_loss = test_loss
-        model_save_path = os.path.join(save_path, "taxonclassifier.pth")
+        model_save_path = os.path.join(save_path, "checkpoints.pt")
         with open(model_save_path, "wb") as f:
-            torch.save(net.state_dict(), f)
+            checkpoints = {"net":net.state_dict(),"optimizer":optimizer.state_dict()}
+            torch.save(checkpoints,f)
         processBar.close()
 
     plt.plot(history["Test Loss"], label="Test Loss")
@@ -89,7 +90,7 @@ def train(
 
 def main():
     conf = config.AllConfig
-    model_path = os.path.join(conf.save_path, "taxonclassifier.pth")
+    model_path = os.path.join(conf.save_path, "checkpoints.pt")
     model = TaxonClassifier.TaxonModel(
         vocab_size=conf.vocab_size,
         embedding_size=conf.embedding_size,
@@ -100,10 +101,13 @@ def main():
         num_class=conf.num_class,
         drop_out=conf.drop_prob,
     )
+    optimizer = torch.optim.Adam(model.parameters(), lr=conf.lr)
     # print(model.state_dict())
     if os.path.exists(model_path) is True:
         print("Loading existing model state......")
-        model.load_state_dict(torch.load(model_path))
+        checkpoint = torch.load(model_path)
+        model.load_state_dict(checkpoint['net'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
     else:
         print("No existing model state......")
     print("Loading Dict Files......")
@@ -122,7 +126,6 @@ def main():
     )
     lossF = torch.nn.CrossEntropyLoss()
     model = model.to(device=conf.device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=conf.lr)
     print("Start Training")
     train(
         epochs=conf.epoch,
