@@ -64,8 +64,8 @@ def train(
                     best_test_loss = test_loss
         model_save_path = os.path.join(save_path, "checkpoints.pt")
         with open(model_save_path, "wb") as f:
-            checkpoints = {"net":net.state_dict(),"optimizer":optimizer.state_dict()}
-            torch.save(checkpoints,f)
+            checkpoints = {"net": net.state_dict(), "optimizer": optimizer.state_dict()}
+            torch.save(checkpoints, f)
         processBar.close()
 
 
@@ -82,13 +82,14 @@ def main():
         num_class=conf.num_class,
         drop_out=conf.drop_prob,
     )
+    model = model.to(device=conf.device)
     optimizer = torch.optim.Adam(model.parameters(), lr=conf.lr)
     # print(model.state_dict())
     if os.path.exists(model_path) is True:
         print("Loading existing model state_dict......")
         checkpoint = torch.load(model_path)
-        model.load_state_dict(checkpoint['net'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
+        model.load_state_dict(checkpoint["net"])
+        optimizer.load_state_dict(checkpoint["optimizer"])
     else:
         print("No existing model state......")
     print("Loading Dict Files......")
@@ -108,7 +109,6 @@ def main():
         num_workers=4,
     )
     lossF = torch.nn.CrossEntropyLoss()
-    model = model.to(device=conf.device)
     print("Start Training")
     train(
         epochs=conf.epoch,
