@@ -22,8 +22,6 @@ def Read_Parser(record: any):
 
 class Dictionary:
     def __init__(self, kmer_file_path: str, taxon_file_path: str):
-        self.kmer2idx = {}
-        self.taxon2idx = {}
         self.kmer2idx = DataProcess.TransferKmer2Idx(kmer_file_path)
         self.taxon2idx = DataProcess.TransferTaxon2Idx(taxon_file_path)
 

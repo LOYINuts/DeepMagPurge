@@ -70,6 +70,5 @@ class TaxonModel(nn.Module):
 
         x = x * score  # [batch_size,seq_len,hidden_size*2]
         x = torch.sum(x, dim=1)  # [batch_size,hidden_size*2]
-        x = F.gelu(x)
         final_outputs = self.decoder(x)
         return final_outputs

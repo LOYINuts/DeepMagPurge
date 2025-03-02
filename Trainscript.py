@@ -24,7 +24,7 @@ def train(
         for step, (train_seq, train_labels) in enumerate(processBar):
             train_seq = train_seq.to(device)
             train_labels = train_labels.to(device)
-            net.zero_grad()
+            optimizer.zero_grad()
             outputs = net(train_seq)
             loss = lossF(outputs, train_labels)
             predictions = torch.argmax(outputs, dim=1)
@@ -62,16 +62,15 @@ def train(
                 )
                 if not best_test_loss or test_loss < best_test_loss:
                     best_test_loss = test_loss
-        model_save_path = os.path.join(save_path, "checkpoints.pt")
+        model_save_path = os.path.join(save_path, "checkpoint.pt")
         with open(model_save_path, "wb") as f:
-            checkpoints = {"net": net.state_dict(), "optimizer": optimizer.state_dict()}
-            torch.save(checkpoints, f)
+            torch.save(net.state_dict(), f)
         processBar.close()
 
 
 def main():
     conf = config.AllConfig
-    model_path = os.path.join(conf.save_path, "checkpoints.pt")
+    model_path = os.path.join(conf.save_path, "checkpoint.pt")
     model = TaxonClassifier.TaxonModel(
         vocab_size=conf.vocab_size,
         embedding_size=conf.embedding_size,
@@ -87,9 +86,8 @@ def main():
     # print(model.state_dict())
     if os.path.exists(model_path) is True:
         print("Loading existing model state_dict......")
-        checkpoint = torch.load(model_path)
-        model.load_state_dict(checkpoint["net"])
-        optimizer.load_state_dict(checkpoint["optimizer"])
+        checkpoint = torch.load(model_path, map_location=conf.device, weights_only=True)
+        model.load_state_dict(checkpoint)
     else:
         print("No existing model state......")
     print("Loading Dict Files......")
