@@ -1,5 +1,6 @@
 import torch.nn as nn
 
+
 class SeqEncoder(nn.Module):
     def __init__(
         self, embbeding_dim: int, hidden_dim: int, num_layers: int, dropout: float = 0.5
@@ -17,8 +18,6 @@ class SeqEncoder(nn.Module):
             bidirectional=True,
         )
 
-    def forward(self, x, hidden_state, cell_state):
-        output, (final_hidden_state, final_cell_state) = self.lstm(
-            x, (hidden_state, cell_state)
-        )
-        return output, (final_hidden_state, final_cell_state)
+    def forward(self, x):
+        output, _ = self.lstm(x)
+        return output

@@ -17,7 +17,6 @@ def train(
     optimizer: torch.optim.Optimizer,
     save_path: str,
 ):
-    best_test_loss = None
     for epoch in range(1, epochs + 1):
         processBar = tqdm(trainDataLoader, unit="step")
         net.train(True)
@@ -60,8 +59,6 @@ def train(
                         test_acc.item(),
                     )
                 )
-                if not best_test_loss or test_loss < best_test_loss:
-                    best_test_loss = test_loss
         model_save_path = os.path.join(save_path, "checkpoint.pt")
         with open(model_save_path, "wb") as f:
             torch.save(net.state_dict(), f)
@@ -83,7 +80,6 @@ def main():
     )
     model = model.to(device=conf.device)
     optimizer = torch.optim.Adam(model.parameters(), lr=conf.lr)
-    # print(model.state_dict())
     if os.path.exists(model_path) is True:
         print("Loading existing model state_dict......")
         checkpoint = torch.load(model_path, map_location=conf.device, weights_only=True)

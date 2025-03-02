@@ -32,8 +32,10 @@ class TaxonModel(nn.Module):
             vocab_size, embedding_size, max_len, device, drop_out
         )
         # attention相关
-        self.key_matrix = nn.Parameter(torch.Tensor(hidden_size * 2, hidden_size * 2))
-        self.query = nn.Parameter(torch.Tensor(hidden_size * 2))
+        self.key_matrix = nn.Parameter(
+            torch.Tensor(hidden_size * 2, hidden_size * 2), requires_grad=True
+        )
+        self.query = nn.Parameter(torch.Tensor(hidden_size * 2), requires_grad=True)
         # 初始化矩阵参数
         nn.init.uniform_(self.key_matrix, -0.1, 0.1)
         nn.init.uniform_(self.query, -0.1, 0.1)
@@ -47,16 +49,9 @@ class TaxonModel(nn.Module):
         )
 
     def forward(self, x):
-        bs = len(x)
         x = self.embedding(x)  # [batch_size,seq_len,emb_size]
         x = x.permute(1, 0, 2)  # [seq_len,batch_size,emb_size]
-        h0 = torch.zeros(self.num_layers * 2, bs, self.hidden_size).to(
-            device=self.device
-        )
-        c0 = torch.zeros(self.num_layers * 2, bs, self.hidden_size).to(
-            device=self.device
-        )
-        x, (_, _) = self.seq_encoder(x, h0, c0)  # x: [seq_len,batch_size,hidden_size*2]
+        x = self.seq_encoder(x)  # x: [seq_len,batch_size,hidden_size*2]
         x = x.permute(1, 0, 2)  # [batch_size,seq_len,hidden_size*2]
         key = torch.tanh(
             torch.matmul(x, self.key_matrix)
