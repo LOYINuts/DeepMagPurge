@@ -14,7 +14,7 @@ class AllConfig:
     num_class = 120
     drop_prob = 0.5
     max_len = 150
-    lr = 0.005
+    lr = 0.001
     kmer = 8
     batch_size = 2048
     epoch = 1
