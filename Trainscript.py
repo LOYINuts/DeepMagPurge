@@ -1,3 +1,4 @@
+import torch.optim.nadam
 from utils import config
 from tqdm import tqdm
 import torch
@@ -79,9 +80,7 @@ def main():
         drop_out=conf.drop_prob,
     )
     model = model.to(device=conf.device)
-    optimizer = torch.optim.RMSprop(
-        model.parameters(), lr=conf.lr, alpha=0.99, eps=1e-8
-    )
+    optimizer = torch.optim.NAdam(model.parameters(), lr=conf.lr)
     if os.path.exists(model_path) is True:
         print("Loading existing model state_dict......")
         checkpoint = torch.load(model_path, map_location=conf.device, weights_only=True)
