@@ -18,6 +18,7 @@ def train(
     optimizer: torch.optim.Optimizer,
     save_path: str,
 ):
+    Best_loss = None
     for epoch in range(1, epochs + 1):
         processBar = tqdm(trainDataLoader, unit="step")
         net.train(True)
@@ -60,9 +61,11 @@ def train(
                         test_acc.item(),
                     )
                 )
-        model_save_path = os.path.join(save_path, "checkpoint.pt")
-        with open(model_save_path, "wb") as f:
-            torch.save(net.state_dict(), f)
+                if not Best_loss or test_loss < Best_loss:
+                    model_save_path = os.path.join(save_path, "checkpoint.pt")
+                    with open(model_save_path, "wb") as f:
+                        torch.save(net.state_dict(), f)
+
         processBar.close()
 
 
