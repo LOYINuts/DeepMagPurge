@@ -16,5 +16,5 @@ class AllConfig:
     max_len = 150
     lr = 0.002
     kmer = 8
-    batch_size = 2048
+    batch_size = 1024
     epoch = 1
