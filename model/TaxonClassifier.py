@@ -14,8 +14,6 @@ class TaxonModel(nn.Module):
         max_len: int,
         num_layers: int,
         num_class: int,
-        d_model: int,
-        row: int,
         drop_out: float = 0.5,
     ):
         super(TaxonModel, self).__init__()
