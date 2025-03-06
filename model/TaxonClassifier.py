@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
-from . import LSTMLayer, EmbeddingLayer
+from . import LSTMLayer, EmbeddingLayer,AttentionLayer
 
 
 class TaxonModel(nn.Module):
@@ -14,6 +14,8 @@ class TaxonModel(nn.Module):
         max_len: int,
         num_layers: int,
         num_class: int,
+        d_model: int,
+        row: int,
         drop_out: float = 0.5,
     ):
         super(TaxonModel, self).__init__()
@@ -32,18 +34,12 @@ class TaxonModel(nn.Module):
             vocab_size, embedding_size, max_len, device, drop_out
         )
         # attention相关
-        self.key_matrix = nn.Parameter(
-            torch.Tensor(hidden_size * 2, hidden_size * 2), requires_grad=True
-        )
-        self.query = nn.Parameter(torch.Tensor(hidden_size * 2), requires_grad=True)
-        # 初始化矩阵参数
-        nn.init.uniform_(self.key_matrix, -0.1, 0.1)
-        nn.init.uniform_(self.query, -0.1, 0.1)
+        self.attention = AttentionLayer.Attention(hidden_size*2)
         # 解码器，输出class
         self.decoder = nn.Sequential(
             nn.Linear(hidden_size * 2, hidden_size),
             nn.BatchNorm1d(hidden_size),
-            nn.GELU(),
+            nn.ReLU(inplace=True),
             nn.Dropout(drop_out),
             nn.Linear(hidden_size, num_class),
         )
@@ -53,17 +49,6 @@ class TaxonModel(nn.Module):
         x = x.permute(1, 0, 2)  # [seq_len,batch_size,emb_size]
         x = self.seq_encoder(x)  # x: [seq_len,batch_size,hidden_size*2]
         x = x.permute(1, 0, 2)  # [batch_size,seq_len,hidden_size*2]
-        key = torch.tanh(
-            torch.matmul(x, self.key_matrix)
-        )  # [seq_len,batch_size,hidden_size*2]
-
-        # torch.matmul(key,self.query)的结果为 [batch_size,seq_len]因为做的是内积
-        # 再对第1维做softmax
-        score = F.softmax(torch.matmul(key, self.query), dim=1).unsqueeze(
-            -1
-        )  # [batch_size,seq_len,1]
-
-        x = x * score  # [batch_size,seq_len,hidden_size*2]
-        x = torch.sum(x, dim=1)  # [batch_size,hidden_size*2]
+        x = self.attention(x)
         final_outputs = self.decoder(x)
         return final_outputs
