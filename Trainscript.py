@@ -16,6 +16,7 @@ def train(
     device: str,
     lossF: torch.nn.modules.loss._WeightedLoss,
     optimizer: torch.optim.Optimizer,
+    scheduler: torch.optim.lr_scheduler.CosineAnnealingLR,
     save_path: str,
 ):
     Best_loss = None
@@ -32,6 +33,7 @@ def train(
             accuracy = torch.sum(predictions == train_labels) / train_labels.shape[0]
             loss.backward()
             optimizer.step()
+            scheduler.step()
             processBar.set_description(
                 "[%d/%d] Loss: %.4f, Acc: %.4f"
                 % (epoch, epochs, loss.item(), accuracy.item())
@@ -107,6 +109,10 @@ def main():
         num_workers=4,
     )
     lossF = torch.nn.CrossEntropyLoss()
+    print("Setting lr scheduler")
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, len(train_dataloader)
+    )
     print("Start Training")
     train(
         epochs=conf.epoch,
@@ -117,6 +123,7 @@ def main():
         device=conf.device,
         lossF=lossF,
         optimizer=optimizer,
+        scheduler=scheduler,
         save_path=conf.save_path,
     )
 
