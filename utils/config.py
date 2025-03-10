@@ -15,6 +15,6 @@ class AllConfig:
     drop_prob = 0.5
     max_len = 150
     lr = 0.002
-    kmer = 8
+    kmer = 12
     batch_size = 512
     epoch = 1
