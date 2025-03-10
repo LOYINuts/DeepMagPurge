@@ -1,4 +1,5 @@
 import torch
+import random
 
 
 def TransferKmer2Idx(word_file_path: str):
@@ -38,6 +39,12 @@ def TransferTaxon2Idx(taxon_file_path: str) -> dict:
             taxon2idx[taxon] = idx
 
     return taxon2idx
+
+
+def Trim_seq(seq, min_trim=0, max_trim=75, ori_seq_len=150):
+    trim_num = random.randint(min_trim, max_trim)
+    trimmed_seq = seq[0 : (ori_seq_len - trim_num)]
+    return trimmed_seq
 
 
 def ReverseComplementSeq(seq: str):
@@ -88,6 +95,7 @@ def seq2kmer(seq: str, k: int, word2idx: dict, max_len: int):
         k (int): kmer的k值
         word2idx (dict): kmer词典
     """
+    seq = Trim_seq(seq)
     length = len(seq)
     kmer_list = []
     for i in range(0, length):
@@ -97,7 +105,7 @@ def seq2kmer(seq: str, k: int, word2idx: dict, max_len: int):
         idx = kmer2index(k_mer, word2idx)
         kmer_list.append(idx)
     # 不足长度进行padding
-    while len(kmer_list) < max_len:
+    while len(kmer_list) < max_len - k + 1:
         kmer_list.append(0)
     kmer_list = kmer_list[:max_len]
     kmer_array = torch.tensor(kmer_list)
