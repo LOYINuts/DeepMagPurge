@@ -3,7 +3,7 @@ import torch
 
 class AllConfig:
     TaxonFilePath = "./data/taxon2label.txt"
-    KmerFilePath = "./data/tokens_8mers.txt"
+    KmerFilePath = "./data/tokens_12mer.txt"
     DataPath = "E:/GenomeData/DMPdata/testdata.fa"
     save_path = "./checkpoints"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
