@@ -7,7 +7,7 @@ class AllConfig:
     DataPath = "E:/GenomeData/DMPdata/testdata.fa"
     save_path = "./checkpoints"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    vocab_size = 32898
+    vocab_size = 8390658
     embedding_size = 200
     hidden_size = 300
     num_layers = 2
