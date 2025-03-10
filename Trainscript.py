@@ -23,14 +23,18 @@ def train(
     for epoch in range(1, epochs + 1):
         processBar = tqdm(trainDataLoader, unit="step")
         net.train(True)
+        total_train_loss = 0
+        total_train_acc = 0
         for step, (train_seq, train_labels) in enumerate(processBar):
             train_seq = train_seq.to(device)
             train_labels = train_labels.to(device)
             optimizer.zero_grad()
             outputs = net(train_seq)
             loss = lossF(outputs, train_labels)
+            total_train_loss += loss
             predictions = torch.argmax(outputs, dim=1)
             accuracy = torch.sum(predictions == train_labels) / train_labels.shape[0]
+            total_train_acc += accuracy
             loss.backward()
             optimizer.step()
             scheduler.step()
@@ -39,7 +43,7 @@ def train(
                 % (epoch, epochs, loss.item(), accuracy.item())
             )
             if step == len(processBar) - 1:
-                correct, total_loss = 0, 0
+                correct, total_test_loss = 0, 0
                 net.train(False)
                 with torch.no_grad():
                     for test_seq, test_labels in testDataLoader:
@@ -48,17 +52,19 @@ def train(
                         test_out = net(test_seq)
                         tloss = lossF(test_out, test_labels)
                         predictions = torch.argmax(test_out, dim=1)
-                        total_loss += tloss
+                        total_test_loss += tloss
                         correct += torch.sum(predictions == test_labels)
                 test_acc = correct / (batch_size * len(testDataLoader))
-                test_loss = total_loss / len(testDataLoader)
+                test_loss = total_test_loss / len(testDataLoader)
+                train_avg_loss = total_train_loss / len(processBar)
+                train_avg_acc = total_train_acc / len(processBar)
                 processBar.set_description(
-                    "[%d/%d] Loss: %.4f, Acc: %.4f, Test Loss: %.4f, Test Acc: %.4f"
+                    "[%d/%d] Avg Loss: %.4f, Avg Acc: %.4f, Test Loss: %.4f, Test Acc: %.4f"
                     % (
                         epoch,
                         epochs,
-                        loss.item(),
-                        accuracy.item(),
+                        train_avg_loss.item(),
+                        train_avg_acc.item(),
                         test_loss.item(),
                         test_acc.item(),
                     )
@@ -106,6 +112,7 @@ def main():
         dataset=all_dataset.test_dataset,
         batch_size=conf.batch_size,
         shuffle=False,
+        drop_last=True,
         num_workers=4,
     )
     lossF = torch.nn.CrossEntropyLoss()
