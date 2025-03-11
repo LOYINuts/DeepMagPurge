@@ -27,7 +27,7 @@ if __name__ == "__main__":
         NUM_WORKERS = 8
     else:
         NUM_WORKERS = NUM_WORKERS // 4
-    with multiprocessing.Pool() as pool:
+    with multiprocessing.Pool(NUM_WORKERS) as pool:
         # 使用imap_unordered提升处理效率（不保证顺序）
         results = list(pool.imap_unordered(process_file, file_list, chunksize=6))
 
