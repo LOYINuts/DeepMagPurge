@@ -8,7 +8,6 @@ from model import TaxonClassifier, Dataset
 
 
 def evaluate(
-    batch_size: int,
     net: torch.nn.Module,
     testDataLoader: DataLoader,
     device,
@@ -177,7 +176,6 @@ def main():
         save_path=conf.save_path,
     )
     evaluate(
-        batch_size=conf.batch_size,
         net=model,
         testDataLoader=test_dataloader,
         device=conf.device,
