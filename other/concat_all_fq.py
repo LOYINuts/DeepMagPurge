@@ -29,7 +29,7 @@ if __name__ == "__main__":
         NUM_WORKERS = NUM_WORKERS // 4
     with multiprocessing.Pool() as pool:
         # 使用imap_unordered提升处理效率（不保证顺序）
-        results = pool.imap_unordered(process_file, file_list, chunksize=6)
+        results = list(pool.imap_unordered(process_file, file_list, chunksize=6))
 
         with open(OUTPUT_PATH, "w") as fout:
             for data, file in results:

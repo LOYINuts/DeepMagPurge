@@ -1,14 +1,13 @@
 import subprocess
 import os
-import time
-
-from multiprocessing import Process, Pool
+from multiprocessing import Pool
 
 # 定义路径常量（使用原始字符串处理Windows路径）
 ART_PATH = r"/home/lys/gh/softwares/art_bin_MountRainier/art_illumina"
 INPUT_DIR = "/home/lys/gh/DBFiles/dmpdata/labeled_genome_genus/"
 OUTPUT_DIR = "/home/lys/gh/DBFiles/dmpdata/art_output/"
 NUM_WORKERS = os.cpu_count()
+
 
 def process_single_file(file: str):
     """处理单个文件的函数（适配进程池）"""
@@ -68,10 +67,7 @@ if __name__ == "__main__":
     else:
         NUM_WORKERS = NUM_WORKERS // 4
     with Pool(NUM_WORKERS) as pool:
-        results = pool.imap_unordered(process_single_file, file_list, chunksize=5)
+        results = list(pool.imap_unordered(process_single_file, file_list, chunksize=5))
         # 可选：统计成功/失败数量
-        success = 0
-        for result in results:
-            if result:
-                success += 1
+        success = sum(results)
         print(f"完成！成功处理 {success}/{len(file_list)} 个文件")
