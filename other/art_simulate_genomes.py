@@ -5,9 +5,9 @@ import time
 from multiprocessing import Process
 
 # 定义路径常量（使用原始字符串处理Windows路径）
-ART_PATH = r"D:/SoftwaresAndTools/art_bin_MountRainier/art_illumina.exe"
-INPUT_DIR = "E:/GenomeData/labeled_genome_genus/"
-OUTPUT_DIR = "E:/GenomeData/DMPdata/DeepMicrobeGenusArt3/"
+ART_PATH = r"/home/lys/gh/softwares/art_bin_MountRainier/art_illumina"
+INPUT_DIR = "/home/lys/gh/DBFiles/dmpdata/labeled_genome_genus/"
+OUTPUT_DIR = "/home/lys/gh/DBFiles/dmpdata/art_output/"
 NUM_WORKERS = 4
 
 

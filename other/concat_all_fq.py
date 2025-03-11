@@ -1,8 +1,8 @@
 import os
 from Bio import SeqIO
 
-FILE_PATH = "./DeepMicrobeGenusArt3"
-OUTPUT_PATH = "./all_concat_seq_data3.fasta"
+FILE_PATH = "/home/lys/gh/DBFiles/dmpdata/art_output/"
+OUTPUT_PATH = "/home/lys/gh/DBFiles/dmpdata/all_concat_seq_data.fa"
 
 file_list = os.listdir(FILE_PATH)
 with open(OUTPUT_PATH, "w") as fout:
