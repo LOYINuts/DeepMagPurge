@@ -4,7 +4,7 @@ import torch
 class AllConfig:
     TaxonFilePath = "./data/taxon2label.txt"
     KmerFilePath = "./data/tokens_12mer.txt"
-    TrainDataPath = "/home/lys/gh/DBFiles/dmpdata/all_concat_seq_data3.fa"
+    TrainDataPath = "/home/lys/gh/DBFiles/dmpdata/all_concat_seq_data.fa"
     mode = "train"
     TestDataPath = "/home/lys/gh/DBFiles/dmpdata/all_concat_seq_data.fa"
     save_path = "./checkpoints"
