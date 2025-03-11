@@ -117,7 +117,7 @@ class SeqDataset(Dataset):
         num_workers: int,
     ):
         self.Data, self.Label = read_file2data(
-            input_path, k, all_dict.kmer2idx, max_len
+            input_path, k, all_dict.kmer2idx, max_len, num_workers=num_workers
         )
         self.Data = torch.stack(self.Data)
         self.Label = torch.tensor(self.Label)
