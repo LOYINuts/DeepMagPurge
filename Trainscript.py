@@ -14,22 +14,24 @@ def evaluate(
     lossF: torch.nn.modules.loss._WeightedLoss,
 ):
     net.train(False)
-    processBar = tqdm(testDataLoader, unit="step")
-    total_test_loss, total_test_acc = 0, 0
-    for step, (test_seq, test_labels) in enumerate(processBar):
-        test_seq = test_seq.to(device)
-        test_labels = test_labels.to(device)
-        outputs = net(test_seq)
-        test_loss = lossF(outputs, test_labels)
-        predictions = torch.argmax(outputs, dim=1)
-        total_test_loss += test_loss
-        accuracy = torch.sum(predictions == test_labels) / test_labels.shape[0]
-        total_test_acc += accuracy
-        processBar.set_description(
-            "Test Loss: %.4f, Test Acc: %.4f" % (test_loss.item(), accuracy.item())
-        )
-    test_avg_loss = total_test_loss / len(testDataLoader)
-    test_avg_acc = total_test_acc / len(testDataLoader)
+    torch.cuda.empty_cache()
+    with torch.no_grad():
+        processBar = tqdm(testDataLoader, unit="step")
+        total_test_loss, total_test_acc = 0, 0
+        for step, (test_seq, test_labels) in enumerate(processBar):
+            test_seq = test_seq.to(device)
+            test_labels = test_labels.to(device)
+            outputs = net(test_seq)
+            test_loss = lossF(outputs, test_labels)
+            predictions = torch.argmax(outputs, dim=1)
+            total_test_loss += test_loss
+            accuracy = torch.sum(predictions == test_labels) / test_labels.shape[0]
+            total_test_acc += accuracy
+            processBar.set_description(
+                "Test Loss: %.4f, Test Acc: %.4f" % (test_loss.item(), accuracy.item())
+            )
+        test_avg_loss = total_test_loss / len(testDataLoader)
+        test_avg_acc = total_test_acc / len(testDataLoader)
     print(
         "Avg Test Loss: %.4f, Avg Test Acc: %.4f" % test_avg_loss.item(),
         test_avg_acc.item(),
