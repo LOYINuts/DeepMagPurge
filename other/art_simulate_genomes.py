@@ -2,7 +2,7 @@ import subprocess
 import os
 import time
 
-from multiprocessing import Process
+from multiprocessing import Process, Pool
 
 # 定义路径常量（使用原始字符串处理Windows路径）
 ART_PATH = r"/home/lys/gh/softwares/art_bin_MountRainier/art_illumina"
@@ -11,66 +11,64 @@ OUTPUT_DIR = "/home/lys/gh/DBFiles/dmpdata/art_output/"
 NUM_WORKERS = 4
 
 
-def process_files(file_list: list[str]):
-    # 遍历输入目录下的所有文件
-    for file in file_list:
-        # 解析基因标识（使用Path对象处理文件名）
-        splits = file.split(".")
-        out_prefix = "_".join([splits[0],"pari_end"])
+def process_single_file(file: str):
+    """处理单个文件的函数（适配进程池）"""
+    # 生成输出前缀（示例：将文件名拆分为"genus_pari_end"）
+    splits = file.split(".")
+    out_prefix = "_".join([splits[0], "pari_end"])
 
-        # 构造art命令参数列表
-        input_path = INPUT_DIR + file
-        output_path = OUTPUT_DIR + out_prefix
-        cmd_args = [
-            ART_PATH,
-            "-ss",
-            "HS25",
-            "-i",
-            input_path,  # 转换为绝对路径
-            "-l",
-            "150",
-            "-na",
-            "-f",
-            "5",
-            "-p",
-            "-s",
-            "50",
-            "-m",
-            "400",
-            "-o",
-            output_path,
-        ]
+    # 构造输入输出路径
+    input_path = os.path.join(INPUT_DIR, file)
+    output_path = os.path.join(OUTPUT_DIR, out_prefix)
 
-        try:
-            # 同步执行命令（shell=False更安全）
-            p = subprocess.Popen(
-                cmd_args,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            p.wait()
-            # 输出执行结果
-            print(f"处理完成: {out_prefix}")
-        except subprocess.CalledProcessError as e:
-            print(f"错误：处理 {out_prefix} 失败，返回码 {e.returncode}")
-            print(f"错误日志:\n{e.stderr[:500]}...")
-        except Exception as e:
-            print(f"意外错误: {str(e)}")
+    # ART命令参数
+    cmd_args = [
+        ART_PATH,
+        "-ss",
+        "HS25",
+        "-i",
+        input_path,
+        "-l",
+        "150",
+        "-na",  # 不生成ALN文件（节省I/O）
+        "-f",
+        "5",
+        "-p",  # 启用配对端模式
+        "-s",
+        "50",
+        "-m",
+        "400",
+        "-o",
+        output_path,
+    ]
+
+    try:
+        # 执行命令（禁用shell以提升安全性）
+        result = subprocess.run(
+            cmd_args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True,  # 自动检查返回码
+        )
+        print(f"处理成功: {out_prefix}")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"错误: {out_prefix} 失败 (返回码 {e.returncode})")
+        print(f"错误日志（截断）: {e.stderr[:200]}...")
+        return False
+    except Exception as e:
+        print(f"意外错误: {out_prefix} - {str(e)}")
+        return False
 
 
 if __name__ == "__main__":
     file_list = os.listdir(INPUT_DIR)
-    num_files = len(file_list)
-    step = int(num_files / 4)
-    files4process = []
-    for i in range(NUM_WORKERS):
-        start, end = int(i * step), int((i + 1) * step)
-        if i != NUM_WORKERS - 1:
-            files4process.append(file_list[start:end])
-        else:
-            files4process.append(file_list[start:])
-    workers = []
-    for i in range(NUM_WORKERS):
-        workers.append(Process(target=process_files, args=(list(files4process[i]),)))
-        workers[i].start()
+    with Pool(NUM_WORKERS) as pool:
+        results = pool.imap_unordered(process_single_file, file_list, chunksize=5)
+        # 可选：统计成功/失败数量
+        success = 0
+        for result in results:
+            if result:
+                success += 1
+        print(f"完成！成功处理 {success}/{len(file_list)} 个文件")
