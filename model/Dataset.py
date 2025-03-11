@@ -6,12 +6,36 @@ from tqdm import tqdm
 import torch
 
 
+def read_file2data(filepath: str, k: int, word2idx: dict, max_len: int):
+    """读取文件将数据提取出来
 
-def Read_Parser(record: any):
+    Args:
+        filepath (str): _description_
+        k (int): _description_
+        word2idx (dict): _description_
+        max_len (int): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    DataTensor = []
+    Labels = []
+    with open(filepath, "r") as handle:
+        records = list(SeqIO.parse(handle, "fasta"))
+        processBar = tqdm(records, desc="转换数据")
+        for rec in processBar:
+            seq, label_id = Read_Parser(rec)
+            kmer_tensor = DataProcess.seq2kmer(seq, k, word2idx, max_len)
+            DataTensor.append(kmer_tensor)
+            Labels.append(label_id)
+    return DataTensor, Labels
+
+
+def Read_Parser(record):
     """将SeqIO.parse的返回的一个rec获取其序列和label
 
     Args:
-        record (any): SeqIO.parse的返回的一个rec
+        record : SeqIO.parse的返回的一个rec
     """
     seq = str(record.seq)
     identifier = record.id
@@ -29,6 +53,7 @@ class AllDataset:
     def __init__(
         self,
         input_path: str,
+        test_path: str,
         max_len: int,
         all_dict: Dictionary,
         k: int,
@@ -36,42 +61,47 @@ class AllDataset:
         self.max_len = max_len
         self.mydict = all_dict
         self.k = k
-        train_data, train_label, test_data, test_label = self.ConvertFile2Data(
-            input_path
+        train_data, train_label, valid_data, valid_label, test_data, test_label = (
+            self.ConvertFile2Data(input_path, test_path)
         )
         self.train_dataset = SeqDataset(train_data, train_label)
+        self.valid_dataset = SeqDataset(valid_data, valid_label)
         self.test_dataset = SeqDataset(test_data, test_label)
 
-    def ConvertFile2Data(self, input_path: str):
-        Train_DataTensor = []
-        Train_Labels = []
-        Test_DataTensor = []
-        Test_Labels = []
-        print("Extracting data......")
-        with open(input_path, "r") as handle:
-            records = list(SeqIO.parse(handle, "fasta"))
-            processBar = tqdm(records, desc="转换序列")
-            for rec in processBar:
-                seq, label_id = Read_Parser(rec)
-                kmer_tensor = DataProcess.seq2kmer(
-                    seq, self.k, self.mydict.kmer2idx, self.max_len
-                )
-                Train_DataTensor.append(kmer_tensor)
-                Train_Labels.append(label_id)
+    def ConvertFile2Data(self, input_path: str, test_data_path: str):
+        print("Extracting train and valid data......")
+        Train_DataTensor, Train_Labels = read_file2data(
+            input_path, self.k, self.mydict.kmer2idx, self.max_len
+        )
 
-        test_index = np.random.randint(
+        print("Extracting test data......")
+        Test_DataTensor, Test_Labels = read_file2data(
+            test_data_path, self.k, self.mydict.kmer2idx, self.max_len
+        )
+
+        valid_index = np.random.randint(
             low=0,
             high=len(Train_DataTensor),
             size=int(
                 len(Train_DataTensor) / 10,
             ),
         )
-        test_index = torch.tensor(test_index)
+        valid_index = torch.tensor(valid_index)
+
         Train_DataTensor = torch.stack(Train_DataTensor)
         Train_Labels = torch.tensor(Train_Labels)
-        Test_DataTensor = Train_DataTensor[test_index]
-        Test_Labels = Train_Labels[test_index]
-        return Train_DataTensor, Train_Labels, Test_DataTensor, Test_Labels
+        Test_DataTensor = torch.stack(Test_DataTensor)
+        Test_Labels = torch.tensor(Test_Labels)
+        Valid_DataTensor = Train_DataTensor[valid_index]
+        Valid_Labels = Train_Labels[valid_index]
+        return (
+            Train_DataTensor,
+            Train_Labels,
+            Valid_DataTensor,
+            Valid_Labels,
+            Test_DataTensor,
+            Test_Labels,
+        )
 
 
 class SeqDataset(Dataset):

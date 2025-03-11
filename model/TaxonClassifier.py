@@ -1,7 +1,5 @@
-import torch
 from torch import nn
-from torch.nn import functional as F
-from . import LSTMLayer, EmbeddingLayer,AttentionLayer
+from . import LSTMLayer, EmbeddingLayer, AttentionLayer
 
 
 class TaxonModel(nn.Module):
@@ -10,7 +8,7 @@ class TaxonModel(nn.Module):
         vocab_size: int,
         embedding_size: int,
         hidden_size: int,
-        device: str,
+        device,
         max_len: int,
         num_layers: int,
         num_class: int,
@@ -32,7 +30,7 @@ class TaxonModel(nn.Module):
             vocab_size, embedding_size, max_len, device, drop_out
         )
         # attention相关
-        self.attention = AttentionLayer.Attention(hidden_size*2)
+        self.attention = AttentionLayer.Attention(hidden_size * 2)
         # 解码器，输出class
         self.decoder = nn.Sequential(
             nn.Linear(hidden_size * 2, hidden_size),
