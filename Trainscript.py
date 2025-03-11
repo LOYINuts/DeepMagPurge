@@ -131,7 +131,6 @@ def main():
             input_path=conf.TrainDataPath,
             all_dict=all_dict,
             k=conf.kmer,
-            num_workers=conf.num_workers,
         )
         train_dataloader = DataLoader(
             dataset=train_dataset,
@@ -164,7 +163,6 @@ def main():
             input_path=conf.TestDataPath,
             all_dict=all_dict,
             k=conf.kmer,
-            num_workers=conf.num_workers,
         )
         test_dataloader = DataLoader(
             dataset=test_dataset,
