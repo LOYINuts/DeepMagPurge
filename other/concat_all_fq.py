@@ -4,7 +4,7 @@ from Bio import SeqIO
 
 FILE_PATH = "/home/lys/gh/DBFiles/dmpdata/art_output/"
 OUTPUT_PATH = "/home/lys/gh/DBFiles/dmpdata/all_concat_seq_data.fa"
-
+NUM_WORKERS = os.cpu_count()
 
 def process_file(file):
     """处理单个文件，返回FASTA数据和文件名"""
@@ -23,6 +23,10 @@ def process_file(file):
 if __name__ == "__main__":
     file_list = os.listdir(FILE_PATH)
     # 创建进程池（默认使用所有CPU核心）
+    if NUM_WORKERS is None:
+        NUM_WORKERS = 8
+    else:
+        NUM_WORKERS = NUM_WORKERS // 4
     with multiprocessing.Pool() as pool:
         # 使用imap_unordered提升处理效率（不保证顺序）
         results = pool.imap_unordered(process_file, file_list, chunksize=6)

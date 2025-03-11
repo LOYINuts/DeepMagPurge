@@ -8,8 +8,7 @@ from multiprocessing import Process, Pool
 ART_PATH = r"/home/lys/gh/softwares/art_bin_MountRainier/art_illumina"
 INPUT_DIR = "/home/lys/gh/DBFiles/dmpdata/labeled_genome_genus/"
 OUTPUT_DIR = "/home/lys/gh/DBFiles/dmpdata/art_output/"
-NUM_WORKERS = 4
-
+NUM_WORKERS = os.cpu_count()
 
 def process_single_file(file: str):
     """处理单个文件的函数（适配进程池）"""
@@ -64,6 +63,10 @@ def process_single_file(file: str):
 
 if __name__ == "__main__":
     file_list = os.listdir(INPUT_DIR)
+    if NUM_WORKERS is None:
+        NUM_WORKERS = 8
+    else:
+        NUM_WORKERS = NUM_WORKERS // 4
     with Pool(NUM_WORKERS) as pool:
         results = pool.imap_unordered(process_single_file, file_list, chunksize=5)
         # 可选：统计成功/失败数量
