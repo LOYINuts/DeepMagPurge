@@ -33,8 +33,11 @@ def evaluate(
         test_avg_loss = total_test_loss / len(testDataLoader)
         test_avg_acc = total_test_acc / len(testDataLoader)
     print(
-        "Avg Test Loss: %.4f, Avg Test Acc: %.4f" % test_avg_loss.item(),
-        test_avg_acc.item(),
+        "Avg Test Loss: %.4f, Avg Test Acc: %.4f"
+        % (
+            test_avg_loss.item(),
+            test_avg_acc.item(),
+        )
     )
 
 
