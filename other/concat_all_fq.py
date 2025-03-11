@@ -30,9 +30,12 @@ if __name__ == "__main__":
     with multiprocessing.Pool(NUM_WORKERS) as pool:
         # 使用imap_unordered提升处理效率（不保证顺序）
         results = list(pool.imap_unordered(process_file, file_list, chunksize=6))
-
+        success = 0
         with open(OUTPUT_PATH, "w") as fout:
             for data, file in results:
+                success += 1
                 if data:  # 忽略空数据（处理失败的情况）
                     fout.write(data)
                 print(f"Complete fastq: {file}")
+
+        print(f"完成！成功处理 {success}/{len(file_list)} 个文件")
