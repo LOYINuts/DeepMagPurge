@@ -1,14 +1,34 @@
+import multiprocessing
 import os
 from Bio import SeqIO
 
 FILE_PATH = "/home/lys/gh/DBFiles/dmpdata/art_output/"
 OUTPUT_PATH = "/home/lys/gh/DBFiles/dmpdata/all_concat_seq_data.fa"
 
-file_list = os.listdir(FILE_PATH)
-with open(OUTPUT_PATH, "w") as fout:
-    for file in file_list:
-        file_path = os.path.join(FILE_PATH, file)
-        with open(file_path, "r", buffering=2048) as handle:
+
+def process_file(file):
+    """处理单个文件，返回FASTA数据和文件名"""
+    file_path = os.path.join(FILE_PATH, file)
+    fasta_data = []
+    try:
+        with open(file_path, "r") as handle:
             for rec in SeqIO.parse(handle, "fastq"):
-                fout.write(rec.format("fasta"))
-        print("Complete fastq:", file)
+                fasta_data.append(rec.format("fasta"))
+    except Exception as e:
+        print(f"Error processing {file}: {str(e)}")
+        return "", file
+    return "".join(fasta_data), file
+
+
+if __name__ == "__main__":
+    file_list = os.listdir(FILE_PATH)
+    # 创建进程池（默认使用所有CPU核心）
+    with multiprocessing.Pool() as pool:
+        # 使用imap_unordered提升处理效率（不保证顺序）
+        results = pool.imap_unordered(process_file, file_list, chunksize=6)
+
+        with open(OUTPUT_PATH, "w") as fout:
+            for data, file in results:
+                if data:  # 忽略空数据（处理失败的情况）
+                    fout.write(data)
+                print(f"Complete fastq: {file}")
