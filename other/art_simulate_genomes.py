@@ -48,7 +48,6 @@ def process_files(file_list: list[str]):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                creationflags=subprocess.CREATE_NO_WINDOW,  # 不显示控制台窗口
             )
             p.wait()
             # 输出执行结果
