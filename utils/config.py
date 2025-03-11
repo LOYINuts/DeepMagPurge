@@ -4,8 +4,9 @@ import torch
 class AllConfig:
     TaxonFilePath = "./data/taxon2label.txt"
     KmerFilePath = "./data/tokens_12mer.txt"
-    TrainDataPath = "E:/GenomeData/DMPdata/all_concat_seq_data3.fa"
-    TestDataPath = "E:/GenomeData/DMPdata/all_concat_seq_data.fa"
+    TrainDataPath = "/home/lys/gh/DBFiles/dmpdata/all_concat_seq_data3.fa"
+    mode = "train"
+    TestDataPath = "/home/lys/gh/DBFiles/dmpdata/all_concat_seq_data.fa"
     save_path = "./checkpoints"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     vocab_size = 8390658
@@ -18,4 +19,4 @@ class AllConfig:
     lr = 0.002
     kmer = 12
     batch_size = 2048
-    epoch = 1
+    epoch = 10

@@ -43,10 +43,8 @@ def evaluate(
 
 def train(
     epochs: int,
-    batch_size: int,
     net: torch.nn.Module,
     trainDataLoader: DataLoader,
-    validDataLoader: DataLoader,
     device,
     lossF: torch.nn.modules.loss._WeightedLoss,
     optimizer: torch.optim.Optimizer,
@@ -77,30 +75,15 @@ def train(
                 % (epoch, epochs, loss.item(), accuracy.item())
             )
             if step == len(processBar) - 1:
-                correct, total_valid_loss = 0, 0
-                net.train(False)
-                with torch.no_grad():
-                    for valid_seq, valid_labels in validDataLoader:
-                        valid_seq = valid_seq.to(device)
-                        valid_labels = valid_labels.to(device)
-                        valid_out = net(valid_seq)
-                        tloss = lossF(valid_out, valid_labels)
-                        predictions = torch.argmax(valid_out, dim=1)
-                        total_valid_loss += tloss
-                        correct += torch.sum(predictions == valid_labels)
-                valid_acc = correct / (batch_size * len(validDataLoader))
-                valid_loss = total_valid_loss / len(validDataLoader)
                 train_avg_loss = total_train_loss / len(processBar)
                 train_avg_acc = total_train_acc / len(processBar)
                 processBar.set_description(
-                    "[%d/%d] Avg Loss: %.4f, Avg Acc: %.4f, Valid Loss: %.4f, Valid Acc: %.4f"
+                    "[%d/%d] Avg Loss: %.4f, Avg Acc: %.4f"
                     % (
                         epoch,
                         epochs,
                         train_avg_loss.item(),
                         train_avg_acc.item(),
-                        valid_loss.item(),
-                        valid_acc.item(),
                     )
                 )
                 if not Best_loss or train_avg_loss < Best_loss:
@@ -126,7 +109,7 @@ def main():
         drop_out=conf.drop_prob,
     )
     model = model.to(device=conf.device)
-    optimizer = torch.optim.NAdam(model.parameters(), lr=conf.lr)
+    lossF = torch.nn.CrossEntropyLoss()
 
     if os.path.exists(model_path) is True:
         print("Loading existing model state_dict......")
@@ -135,57 +118,64 @@ def main():
     else:
         print("No existing model state......")
 
+    optimizer = torch.optim.NAdam(model.parameters(), lr=conf.lr)
+
     print("Loading Dict Files......")
     all_dict = Dataset.Dictionary(conf.KmerFilePath, conf.TaxonFilePath)
 
-    print("Loading dataset......")
-    all_dataset = Dataset.AllDataset(
-        conf.TrainDataPath, conf.TestDataPath, conf.max_len, all_dict, conf.kmer
-    )
-    train_dataloader = DataLoader(
-        dataset=all_dataset.train_dataset,
-        batch_size=conf.batch_size,
-        shuffle=True,
-        num_workers=4,
-    )
-    valid_dataloader = DataLoader(
-        dataset=all_dataset.valid_dataset,
-        batch_size=conf.batch_size,
-        shuffle=False,
-        drop_last=True,
-        num_workers=4,
-    )
-    test_dataloader = DataLoader(
-        dataset=all_dataset.test_dataset,
-        batch_size=conf.batch_size,
-        shuffle=True,
-        num_workers=4,
-    )
+    print("mode is: ", conf.mode)
+    if conf.mode == "train":
+        print("Loading dataset......")
+        train_dataset = Dataset.SeqDataset(
+            max_len=conf.max_len,
+            input_path=conf.TrainDataPath,
+            all_dict=all_dict,
+            k=conf.kmer,
+        )
+        train_dataloader = DataLoader(
+            dataset=train_dataset,
+            batch_size=conf.batch_size,
+            shuffle=True,
+            num_workers=4,
+        )
+        
+        print("Setting lr scheduler")
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, len(train_dataloader)
+        )
 
-    lossF = torch.nn.CrossEntropyLoss()
-    print("Setting lr scheduler")
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, len(train_dataloader)
-    )
-    print("Start Training")
-    train(
-        epochs=conf.epoch,
-        batch_size=conf.batch_size,
-        net=model,
-        trainDataLoader=train_dataloader,
-        validDataLoader=valid_dataloader,
-        device=conf.device,
-        lossF=lossF,
-        optimizer=optimizer,
-        scheduler=scheduler,
-        save_path=conf.save_path,
-    )
-    evaluate(
-        net=model,
-        testDataLoader=test_dataloader,
-        device=conf.device,
-        lossF=lossF,
-    )
+        print("Start Training")
+        train(
+            epochs=conf.epoch,
+            net=model,
+            trainDataLoader=train_dataloader,
+            device=conf.device,
+            lossF=lossF,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            save_path=conf.save_path,
+        )
+
+    elif conf.mode == "eval":
+        print("Loading dataset......")
+        test_dataset = Dataset.SeqDataset(
+            max_len=conf.max_len,
+            input_path=conf.TestDataPath,
+            all_dict=all_dict,
+            k=conf.kmer,
+        )
+        test_dataloader = DataLoader(
+            dataset=test_dataset,
+            batch_size=conf.batch_size,
+            shuffle=True,
+            num_workers=4,
+        )
+        evaluate(
+            net=model,
+            testDataLoader=test_dataloader,
+            device=conf.device,
+            lossF=lossF,
+        )
 
 
 if __name__ == "__main__":
