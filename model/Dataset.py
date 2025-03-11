@@ -4,31 +4,40 @@ from Bio import SeqIO
 import numpy as np
 from tqdm import tqdm
 import torch
+from multiprocessing import Pool
 
 
-def read_file2data(filepath: str, k: int, word2idx: dict, max_len: int):
-    """读取文件将数据提取出来
+def process_record(args):
+    rec, k, word2idx, max_len = args
+    seq, label_id = Read_Parser(rec)
+    kmer_tensor = DataProcess.seq2kmer(seq, k, word2idx, max_len)
+    return kmer_tensor, label_id
 
-    Args:
-        filepath (str): _description_
-        k (int): _description_
-        word2idx (dict): _description_
-        max_len (int): _description_
 
-    Returns:
-        _type_: _description_
-    """
-    DataTensor = []
-    Labels = []
+def read_file2data(
+    filepath: str, k: int, word2idx: dict, max_len: int, num_workers: int = 8
+):
     with open(filepath, "r") as handle:
         records = list(SeqIO.parse(handle, "fasta"))
-        processBar = tqdm(records, desc="转换数据")
-        for rec in processBar:
-            seq, label_id = Read_Parser(rec)
-            kmer_tensor = DataProcess.seq2kmer(seq, k, word2idx, max_len)
-            DataTensor.append(kmer_tensor)
-            Labels.append(label_id)
-    return DataTensor, Labels
+
+    with Pool(num_workers) as pool:
+        results = list(
+            tqdm(
+                pool.imap(
+                    process_record, [(rec, k, word2idx, max_len) for rec in records]
+                ),
+                total=len(records),
+                desc="转换数据",
+            )
+        )
+        # processBar = tqdm(records, desc="转换数据")
+        # for rec in processBar:
+        #     seq, label_id = Read_Parser(rec)
+        #     kmer_tensor = DataProcess.seq2kmer(seq, k, word2idx, max_len)
+        #     DataTensor.append(kmer_tensor)
+        #     Labels.append(label_id)
+    DataTensor, Labels = zip(*results)
+    return list(DataTensor), list(Labels)
 
 
 def Read_Parser(record):
@@ -104,7 +113,6 @@ class Dictionary:
 #         )
 
 
-
 class SeqDataset(Dataset):
     def __init__(
         self,
@@ -112,6 +120,7 @@ class SeqDataset(Dataset):
         input_path: str,
         all_dict: Dictionary,
         k: int,
+        num_workers: int,
     ):
         self.Data, self.Label = read_file2data(
             input_path, k, all_dict.kmer2idx, max_len

@@ -6,6 +6,7 @@ class AllConfig:
     KmerFilePath = "./data/tokens_12mer.txt"
     TrainDataPath = "/home/lys/gh/DBFiles/dmpdata/all_concat_seq_data.fa"
     mode = "train"
+    num_workers = 32
     TestDataPath = "/home/lys/gh/DBFiles/dmpdata/all_concat_seq_data.fa"
     save_path = "./checkpoints"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

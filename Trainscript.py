@@ -136,9 +136,9 @@ def main():
             dataset=train_dataset,
             batch_size=conf.batch_size,
             shuffle=True,
-            num_workers=4,
+            num_workers=conf.num_workers,
         )
-        
+
         print("Setting lr scheduler")
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, len(train_dataloader)
@@ -168,7 +168,7 @@ def main():
             dataset=test_dataset,
             batch_size=conf.batch_size,
             shuffle=True,
-            num_workers=4,
+            num_workers=conf.num_workers,
         )
         evaluate(
             net=model,
