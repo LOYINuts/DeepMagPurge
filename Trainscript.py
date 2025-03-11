@@ -69,7 +69,8 @@ def train(
                         test_acc.item(),
                     )
                 )
-                if not Best_loss or test_loss < Best_loss:
+                if not Best_loss or train_avg_loss < Best_loss:
+                    Best_loss = train_avg_loss
                     model_save_path = os.path.join(save_path, "checkpoint.pt")
                     with open(model_save_path, "wb") as f:
                         torch.save(net.state_dict(), f)
