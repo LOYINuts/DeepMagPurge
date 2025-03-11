@@ -20,22 +20,16 @@ def read_file2data(
     with open(filepath, "r") as handle:
         records = list(SeqIO.parse(handle, "fasta"))
 
+    args_list = [(rec, k, word2idx, max_len) for rec in records]
     with Pool(num_workers) as pool:
-        results = list(
-            tqdm(
-                pool.imap(
-                    process_record, [(rec, k, word2idx, max_len) for rec in records]
-                ),
-                total=len(records),
-                desc="转换数据",
-            )
-        )
-        # processBar = tqdm(records, desc="转换数据")
-        # for rec in processBar:
-        #     seq, label_id = Read_Parser(rec)
-        #     kmer_tensor = DataProcess.seq2kmer(seq, k, word2idx, max_len)
-        #     DataTensor.append(kmer_tensor)
-        #     Labels.append(label_id)
+        # 使用imap并手动管理进度条
+        results = []
+        with tqdm(total=len(args_list), desc="转换数据") as pbar:
+            for result in pool.imap(process_record, args_list):
+                results.append(result)
+                pbar.update(1)
+
+    # 分离数据和标签
     DataTensor, Labels = zip(*results)
     return list(DataTensor), list(Labels)
 
