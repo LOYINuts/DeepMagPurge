@@ -30,12 +30,12 @@ def process_single_file(file: str):
         "150",
         "-na",  # 不生成ALN文件（节省I/O）
         "-f",
-        "5",
+        "1",
         "-p",  # 启用配对端模式
         "-s",
         "50",
         "-m",
-        "400",
+        "200",
         "-o",
         output_path,
     ]
