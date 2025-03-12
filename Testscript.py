@@ -14,25 +14,23 @@ def evaluate_cpu(
 ):
     torch.set_num_threads(config.AllConfig.num_workers)
     net.eval()
-    all_preds = []
-    all_labels = []
+    total_loss = 0
+    total_acc = 0
     with torch.no_grad():
         processBar = tqdm(testDataLoader, unit="step")
         for test_seq, test_labels in processBar:
             outputs = net(test_seq)
             predictions = torch.argmax(outputs, dim=1)
-            # 累积结果用于最终统一计算
-            all_preds.append(predictions)
-            all_labels.append(test_labels)
-        # 合并所有结果
-        all_preds = torch.cat(all_preds)
-        all_labels = torch.cat(all_labels)
-        # 统一计算指标
-        total_acc = (all_preds == all_labels).float().mean()
-        total_loss = lossF(
-            torch.nn.functional.one_hot(all_preds).float(),  # 伪logits
-            all_labels.float(),
-        )
+            acc = torch.sum(predictions == test_labels) / test_labels.shape[0]
+            loss = lossF(outputs,test_labels)
+            total_loss += loss
+            total_acc += acc
+            processBar.set_description(
+                "Loss: %.4f, Acc: %.4f"
+                % ( loss.item(), acc.item())
+            )
+        total_loss = total_loss / len(testDataLoader)
+        total_acc = total_acc / len(testDataLoader)
         print(f"Avg Test Loss: {total_loss.item():.4f}, Avg Test Acc: {total_acc.item():.4f}")
 
 
