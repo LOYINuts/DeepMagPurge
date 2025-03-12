@@ -3,7 +3,6 @@ from utils import DataProcess, config
 from Bio import SeqIO
 from tqdm import tqdm
 import torch
-from functools import partial
 import multiprocessing as mp
 
 
@@ -100,7 +99,7 @@ class SeqDataset(Dataset):
         k: int,
         mode: str,
     ):
-        self.Data, self.Label = read_file2data(
+        self.Data, self.Label = read_file2data_mp(
             input_path, k, all_dict.kmer2idx, max_len, mode
         )
         self.Data = torch.stack(self.Data)
