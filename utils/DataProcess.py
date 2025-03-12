@@ -72,12 +72,13 @@ def Trim_seq(seq: str, min_trim=0, max_trim=75, ori_seq_len=150):
     :param ori_seq_len: 原始序列长度
     :return: 裁剪后的序列
     """
-    return seq[: ori_seq_len - random.randint(min_trim, max_trim)]
+    trim_length = random.randint(min_trim, max_trim)
+    return seq[: ori_seq_len - trim_length]
 
 
 def ReverseComplementSeq(seq: str):
     """生成序列的反向互补序列
-    
+
     :param seq: 输入序列
     :return: 反向互补序列
     """
