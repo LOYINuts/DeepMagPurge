@@ -131,6 +131,7 @@ def main():
             input_path=conf.TrainDataPath,
             all_dict=all_dict,
             k=conf.kmer,
+            mode=conf.mode,
         )
         train_dataloader = DataLoader(
             dataset=train_dataset,
@@ -163,6 +164,7 @@ def main():
             input_path=conf.TestDataPath,
             all_dict=all_dict,
             k=conf.kmer,
+            mode=conf.mode,
         )
         test_dataloader = DataLoader(
             dataset=test_dataset,

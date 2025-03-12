@@ -1,19 +1,21 @@
 from torch.utils.data.dataset import Dataset
 from utils import DataProcess, config
 from Bio import SeqIO
-import numpy as np
 from tqdm import tqdm
 import torch
 import multiprocessing as mp
 
 
-def read_single_record(rec, k: int, word2idx: dict, max_len: int):
+def read_single_record(rec, k: int, word2idx: dict, max_len: int, mode: str):
     seq, label_id = Read_Parser(record=rec)
-    kmer_tensor = DataProcess.seq2kmer(seq, k, word2idx, max_len)
+    if mode == "train":
+        kmer_tensor = DataProcess.seq2kmer_train(seq, k, word2idx, max_len)
+    else:
+        kmer_tensor = DataProcess.seq2kmer_test(seq, k, word2idx, max_len)
     return kmer_tensor, label_id
 
 
-def read_file2data(filepath: str, k: int, word2idx: dict, max_len: int):
+def read_file2data(filepath: str, k: int, word2idx: dict, max_len: int, mode: str):
     """读取文件将数据提取出来
 
     Args:
@@ -35,7 +37,7 @@ def read_file2data(filepath: str, k: int, word2idx: dict, max_len: int):
             processBar = tqdm(records, desc="转换数据")
             for rec in processBar:
                 result = pool.apply_async(
-                    read_single_record, args=(rec, k, word2idx, max_len)
+                    read_single_record, args=(rec, k, word2idx, max_len, mode)
                 )
                 results.append(result)
 
@@ -132,9 +134,10 @@ class SeqDataset(Dataset):
         input_path: str,
         all_dict: Dictionary,
         k: int,
+        mode: str,
     ):
         self.Data, self.Label = read_file2data(
-            input_path, k, all_dict.kmer2idx, max_len
+            input_path, k, all_dict.kmer2idx, max_len, mode
         )
         self.Data = torch.stack(self.Data)
         self.Label = torch.tensor(self.Label)
