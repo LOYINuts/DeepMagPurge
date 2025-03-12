@@ -37,15 +37,13 @@ def read_file2data(filepath: str, k: int, word2idx: dict, max_len: int, mode: st
         k=k,
         word2idx=word2idx,  # 利用fork机制共享字典（Unix/Linux有效）
         max_len=max_len,
-        mode=mode
+        mode=mode,
     )
-    chunksize = max(
-        BATCH_SIZE, len(records) // (config.AllConfig.num_workers * 10)
-    )  # 动态调整chunksize
-        # 启动进程池
+
+    # 启动进程池
     with mp.Pool(config.AllConfig.num_workers) as pool:
         # 使用imap按顺序处理（避免内存爆炸）
-        results = pool.imap_unordered(process_func, records, chunksize=chunksize)
+        results = pool.imap_unordered(process_func, records, chunksize=BATCH_SIZE)
 
         # 异步更新进度条（避免主线程阻塞）
         DataTensor, Labels = [], []
