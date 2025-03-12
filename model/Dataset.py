@@ -7,6 +7,39 @@ from functools import partial
 import multiprocessing as mp
 
 
+def process_batch(args):
+    batch_records, k, word2idx, max_len, trim = args
+    batch_tensors = []
+    batch_labels = []
+    for rec in batch_records:
+        seq, label_id = Read_Parser(rec)
+        tensor = DataProcess.seq2kmer(seq, k, word2idx, max_len, trim)
+        batch_tensors.append(tensor)
+        batch_labels.append(label_id)
+    return batch_tensors, batch_labels
+
+
+def read_file2data_mp(
+    filepath: str, k: int, word2idx: dict, max_len: int, mode: str, batch_size=1000
+):
+    trim = mode == "train"
+    with open(filepath, "r") as handle:
+        records = list(SeqIO.parse(handle, "fasta"))
+    batches = [records[i : i + batch_size] for i in range(0, len(records), batch_size)]
+
+    with mp.Pool(processes=16) as pool:  # 留1核给I/O
+        results = pool.map(
+            process_batch, [(batch, k, word2idx, max_len, trim) for batch in batches]
+        )
+
+    DataTensor = []
+    Labels = []
+    for tensors, labels in results:
+        DataTensor.extend(tensors)
+        Labels.extend(labels)
+    return DataTensor, Labels
+
+
 def read_file2data(filepath: str, k: int, word2idx: dict, max_len: int, mode: str):
     """读取文件将数据提取出来
 
@@ -25,7 +58,7 @@ def read_file2data(filepath: str, k: int, word2idx: dict, max_len: int, mode: st
 
     with open(filepath, "r") as handle:
         records = list(SeqIO.parse(handle, "fasta"))
-        
+
     pbar = tqdm(records, desc=f"Processing {mode} data")
     for rec in pbar:
         seq, label_id = Read_Parser(rec)  # 调整 Read_Parser 处理 pyfastx 对象
