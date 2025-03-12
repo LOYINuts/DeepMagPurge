@@ -6,16 +6,18 @@ import torch
 
 
 def read_file2data(filepath: str, k: int, word2idx: dict, max_len: int, mode: str):
-    """读取文件将数据提取出来
+    """
+    读取文件将数据提取出来
 
     Args:
-        filepath (str): _description_
-        k (int): _description_
-        word2idx (dict): _description_
-        max_len (int): _description_
+        filepath (str): 要读取的文件路径
+        k (int): k-mer的长度
+        word2idx (dict): 单词到索引的映射字典
+        max_len (int): 序列的最大长度
+        mode (str): 处理模式，例如 "train" 或 "test"
 
     Returns:
-        _type_: _description_
+        tuple: 包含数据张量列表和标签列表的元组
     """
     DataTensor = []
     Labels = []
