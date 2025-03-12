@@ -21,21 +21,17 @@ def read_file2data(filepath: str, k: int, word2idx: dict, max_len: int, mode: st
     """
     DataTensor = []
     Labels = []
+    trim = mode == "train"
+
     with open(filepath, "r") as handle:
         records = list(SeqIO.parse(handle, "fasta"))
-    pbar = tqdm(records)
-    if mode == "train":
-        for rec in pbar:
-            seq, label_id = Read_Parser(record=rec)
-            kmer_tensor = DataProcess.seq2kmer_train(seq, k, word2idx, max_len)
-            DataTensor.append(kmer_tensor)
-            Labels.append(label_id)
-    else:
-        for rec in pbar:
-            seq, label_id = Read_Parser(record=rec)
-            kmer_tensor = DataProcess.seq2kmer_test(seq, k, word2idx, max_len)
-            DataTensor.append(kmer_tensor)
-            Labels.append(label_id)
+        
+    pbar = tqdm(records, desc=f"Processing {mode} data")
+    for rec in pbar:
+        seq, label_id = Read_Parser(rec)  # 调整 Read_Parser 处理 pyfastx 对象
+        kmer_tensor = DataProcess.seq2kmer(seq, k, word2idx, max_len, trim)
+        DataTensor.append(kmer_tensor)
+        Labels.append(label_id)
 
     return DataTensor, Labels
 
