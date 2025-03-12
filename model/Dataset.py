@@ -28,7 +28,7 @@ def read_file2data(filepath: str, k: int, word2idx: dict, max_len: int, mode: st
     Returns:
         _type_: _description_
     """
-    BATCH_SIZE = 2000
+    BATCH_SIZE = 1000
     with open(filepath, "r") as handle:
         records = list(SeqIO.parse(handle, "fasta"))
 
