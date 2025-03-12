@@ -5,7 +5,6 @@ class AllConfig:
     TaxonFilePath = "./data/taxon2label.txt"
     KmerFilePath = "./data/tokens_12mer.txt"
     TrainDataPath = "/home/lys/gh/DBFiles/dmpdata/all_concat_seq_data.fa"
-    mode = "train"
     num_workers = 32
     TestDataPath = "/home/lys/gh/DBFiles/dmpdata/all_concat_seq_data.fa"
     save_path = "./checkpoints"
