@@ -22,6 +22,7 @@ def process_batch(args):
 def read_file2data_mp(
     filepath: str, k: int, word2idx: dict, max_len: int, mode: str, batch_size=1000
 ):
+    mp.set_start_method("spawn")
     trim = mode == "train"
     with open(filepath, "r") as handle:
         records = list(SeqIO.parse(handle, "fasta"))
