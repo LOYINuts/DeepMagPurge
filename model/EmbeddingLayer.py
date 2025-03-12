@@ -45,7 +45,7 @@ class PositionEmbedding(nn.Module):
             0, embedding_dim, step=2, device=device
         ).float()
         frequencies = 1.0 / torch.pow(
-            10000.0, frequencies_indices // embedding_dim
+            10000.0, frequencies_indices / embedding_dim
         ).unsqueeze(dim=0)
         self.encoding[:, 0::2] = torch.sin(pos * frequencies)
         self.encoding[:, 1::2] = torch.cos(pos * frequencies)
