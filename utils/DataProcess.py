@@ -101,8 +101,8 @@ def seq2kmer(seq: str, k: int, word2idx: dict, max_len: int, trim: bool = False)
         idx = kmer2index(k_mer, word2idx)
         kmer_list.append(idx)
     # 不足长度进行padding
-    while len(kmer_list) < max_len - k + 1:
-        kmer_list.append(0)
-    kmer_list = kmer_list[: max_len - k + 1]
-    kmer_array = torch.tensor(kmer_list)
-    return kmer_array
+    if len(kmer_list) < max_len:
+        kmer_list += [0] * (max_len - len(kmer_list))
+    else:
+        kmer_list = kmer_list[:max_len]
+    return torch.tensor(kmer_list)

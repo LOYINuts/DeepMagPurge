@@ -29,11 +29,16 @@ def read_file2data_mp(
 
     with mp.Pool(processes=4) as pool:
         # 使用imap+进度条代替map
-        results = list(tqdm(
-            pool.imap(process_batch, [(batch, k, word2idx, max_len, trim) for batch in batches]),
-            total=len(batches),
-            desc="Processing batches"
-        ))
+        results = list(
+            tqdm(
+                pool.imap(
+                    process_batch,
+                    [(batch, k, word2idx, max_len, trim) for batch in batches],
+                ),
+                total=len(batches),
+                desc="Processing batches",
+            )
+        )
 
     DataTensor = []
     Labels = []
@@ -64,7 +69,7 @@ def read_file2data(filepath: str, k: int, word2idx: dict, max_len: int, mode: st
 
     pbar = tqdm(records, desc=f"Processing {mode} data")
     for rec in pbar:
-        seq, label_id = Read_Parser(rec)  # 调整 Read_Parser 处理 pyfastx 对象
+        seq, label_id = Read_Parser(rec)
         kmer_tensor = DataProcess.seq2kmer(seq, k, word2idx, max_len, trim)
         DataTensor.append(kmer_tensor)
         Labels.append(label_id)
@@ -99,7 +104,7 @@ class SeqDataset(Dataset):
         k: int,
         mode: str,
     ):
-        self.Data, self.Label = read_file2data_mp(
+        self.Data, self.Label = read_file2data(
             input_path, k, all_dict.kmer2idx, max_len, mode
         )
         self.Data = torch.stack(self.Data)
