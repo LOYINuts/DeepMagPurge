@@ -3,6 +3,7 @@ from utils import DataProcess, config
 from Bio import SeqIO
 from tqdm import tqdm
 import torch
+from functools import partial
 import multiprocessing as mp
 
 
@@ -27,38 +28,33 @@ def read_file2data(filepath: str, k: int, word2idx: dict, max_len: int, mode: st
     Returns:
         _type_: _description_
     """
-    DataTensor = []
-    Labels = []
+    BATCH_SIZE = 2000
     with open(filepath, "r") as handle:
         records = list(SeqIO.parse(handle, "fasta"))
 
-        pool = mp.Pool(config.AllConfig.num_workers)  # 创建进程池
-        results = []
-        processBar = tqdm(total=len(records), desc="转换数据")
+    process_func = partial(
+        read_single_record,
+        k=k,
+        word2idx=word2idx,  # 利用fork机制共享字典（Unix/Linux有效）
+        max_len=max_len,
+        mode=mode
+    )
+    chunksize = max(
+        BATCH_SIZE, len(records) // (config.AllConfig.num_workers * 10)
+    )  # 动态调整chunksize
+        # 启动进程池
+    with mp.Pool(config.AllConfig.num_workers) as pool:
+        # 使用imap按顺序处理（避免内存爆炸）
+        results = pool.imap_unordered(process_func, records, chunksize=chunksize)
 
-        # 定义线程安全更新函数
-        def safe_update(_):
-            with processBar.get_lock():  # 获取线程锁
-                processBar.update()
-
-        for rec in records:
-            result = pool.apply_async(
-                read_single_record,
-                args=(rec, k, word2idx, max_len, mode),
-                callback=safe_update,
-            )
-            results.append(result)
-
-        pool.close()  # 阻止新任务提交
-        pool.join()  # 等待所有子进程完成
-        processBar.close()
-
-        # 收集结果
-        result_processBar = tqdm(results, desc="收集结果")
-        for result in result_processBar:
-            kmer_tensor, label_id = result.get()
-            DataTensor.append(kmer_tensor)
-            Labels.append(label_id)
+        # 异步更新进度条（避免主线程阻塞）
+        DataTensor, Labels = [], []
+        with tqdm(total=len(records), desc="转换数据") as pbar:
+            for kmer_tensor, label_id in results:
+                if kmer_tensor is not None:  # 过滤异常
+                    DataTensor.append(kmer_tensor)
+                    Labels.append(label_id)
+                pbar.update(1)
 
     return DataTensor, Labels
 
