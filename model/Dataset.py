@@ -1,9 +1,16 @@
 from torch.utils.data.dataset import Dataset
-from utils import DataProcess
+from utils import DataProcess, config
 from Bio import SeqIO
 import numpy as np
 from tqdm import tqdm
 import torch
+import multiprocessing as mp
+
+
+def read_single_record(rec, k: int, word2idx: dict, max_len: int):
+    seq, label_id = Read_Parser(record=rec)
+    kmer_tensor = DataProcess.seq2kmer(seq, k, word2idx, max_len)
+    return kmer_tensor, label_id
 
 
 def read_file2data(filepath: str, k: int, word2idx: dict, max_len: int):
@@ -22,12 +29,26 @@ def read_file2data(filepath: str, k: int, word2idx: dict, max_len: int):
     Labels = []
     with open(filepath, "r") as handle:
         records = list(SeqIO.parse(handle, "fasta"))
-        processBar = tqdm(records, desc="转换数据")
-        for rec in processBar:
-            seq, label_id = Read_Parser(rec)
-            kmer_tensor = DataProcess.seq2kmer(seq, k, word2idx, max_len)
+
+        with mp.Pool(config.AllConfig.num_workers) as pool:
+            results = []
+            processBar = tqdm(records, desc="转换数据")
+            for rec in processBar:
+                result = pool.apply_async(
+                    read_single_record, args=(rec, k, word2idx, max_len)
+                )
+                results.append(result)
+
+        for result in results:
+            kmer_tensor, label_id = result.get()
             DataTensor.append(kmer_tensor)
             Labels.append(label_id)
+        # processBar = tqdm(records, desc="转换数据")
+        # for rec in processBar:
+        #     seq, label_id = Read_Parser(rec)
+        #     kmer_tensor = DataProcess.seq2kmer(seq, k, word2idx, max_len)
+        #     DataTensor.append(kmer_tensor)
+        #     Labels.append(label_id)
     return DataTensor, Labels
 
 
@@ -102,7 +123,6 @@ class Dictionary:
 #             Test_DataTensor,
 #             Test_Labels,
 #         )
-
 
 
 class SeqDataset(Dataset):

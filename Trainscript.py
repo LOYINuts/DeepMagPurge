@@ -170,6 +170,7 @@ def main():
             shuffle=True,
             num_workers=conf.num_workers,
         )
+        print("Start evaluating......")
         evaluate(
             net=model,
             testDataLoader=test_dataloader,
