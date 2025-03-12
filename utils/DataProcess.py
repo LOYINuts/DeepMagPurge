@@ -25,7 +25,7 @@ _TRANSLATION_TABLE = str.maketrans(_TRANSLATION_DICT)
 
 
 def TransferKmer2Idx(word_file_path: str):
-    """词典生成
+    """词典生成,反向互补序列与原kmer共享同一个idx
 
     Args:
         word_file_path (str): 文件路径，即所有kmer的文件路径
@@ -39,6 +39,8 @@ def TransferKmer2Idx(word_file_path: str):
         for line in fin:
             word = line.strip()
             word2idx[word] = idx
+            rev_word = ReverseComplementSeq(word)
+            word2idx[rev_word] = idx
             idx += 1
     return word2idx
 
@@ -92,9 +94,7 @@ def kmer2index(k_mer: str, word2idx: dict):
     :param word2idx: 词到索引的映射字典
     :return: k-mer 对应的索引
     """
-    return word2idx.get(
-        k_mer, word2idx.get(ReverseComplementSeq(k_mer), word2idx["<unk>"])
-    )
+    return word2idx.get(k_mer, 1)
 
 
 def seq2kmer(seq: str, k: int, word2idx: dict, max_len: int, trim: bool = False):
