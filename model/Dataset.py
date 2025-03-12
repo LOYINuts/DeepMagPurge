@@ -28,10 +28,13 @@ def read_file2data_mp(
         records = list(SeqIO.parse(handle, "fasta"))
     batches = [records[i : i + batch_size] for i in range(0, len(records), batch_size)]
 
-    with mp.Pool(processes=16) as pool:  # 留1核给I/O
-        results = pool.map(
-            process_batch, [(batch, k, word2idx, max_len, trim) for batch in batches]
-        )
+    with mp.Pool(processes=4) as pool:
+        # 使用imap+进度条代替map
+        results = list(tqdm(
+            pool.imap(process_batch, [(batch, k, word2idx, max_len, trim) for batch in batches]),
+            total=len(batches),
+            desc="Processing batches"
+        ))
 
     DataTensor = []
     Labels = []
