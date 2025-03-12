@@ -34,21 +34,32 @@ def read_file2data(filepath: str, k: int, word2idx: dict, max_len: int, mode: st
 
         pool = mp.Pool(config.AllConfig.num_workers)  # 创建进程池
         results = []
-        processBar = tqdm(records, desc="转换数据")
-        for rec in processBar:
+        processBar = tqdm(total=len(records), desc="转换数据")
+
+        # 定义线程安全更新函数
+        def safe_update(_):
+            with processBar.get_lock():  # 获取线程锁
+                processBar.update()
+
+        for rec in records:
             result = pool.apply_async(
-                read_single_record, args=(rec, k, word2idx, max_len, mode)
+                read_single_record,
+                args=(rec, k, word2idx, max_len, mode),
+                callback=safe_update,
             )
             results.append(result)
-        
-        pool.close()  # 阻止新任务提交
-        pool.join()   # 等待所有子进程完成
 
-        for result in results:
-            kmer_tensor, label_id = result.get(timeout=120)
+        pool.close()  # 阻止新任务提交
+        pool.join()  # 等待所有子进程完成
+        processBar.close()
+
+        # 收集结果
+        result_processBar = tqdm(results, desc="收集结果")
+        for result in result_processBar:
+            kmer_tensor, label_id = result.get()
             DataTensor.append(kmer_tensor)
             Labels.append(label_id)
-            
+
     return DataTensor, Labels
 
 
