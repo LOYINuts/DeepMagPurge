@@ -28,7 +28,7 @@ def read_file2data(filepath: str, k: int, word2idx: dict, max_len: int, mode: st
     Returns:
         _type_: _description_
     """
-    BATCH_SIZE = 1000
+    
     with open(filepath, "r") as handle:
         records = list(SeqIO.parse(handle, "fasta"))
 
@@ -39,7 +39,7 @@ def read_file2data(filepath: str, k: int, word2idx: dict, max_len: int, mode: st
         max_len=max_len,
         mode=mode,
     )
-
+    BATCH_SIZE = len(records)//config.AllConfig.num_workers
     # 启动进程池
     with mp.Pool(config.AllConfig.num_workers) as pool:
         # 使用imap按顺序处理（避免内存爆炸）
