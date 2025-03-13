@@ -75,7 +75,7 @@ def main():
         dataset=test_dataset,
         batch_size=conf.batch_size,
         shuffle=False,
-        num_workers=conf.num_workers,
+        num_workers=8,
         pin_memory=False,
         persistent_workers=True,  # 保持worker进程存活
     )

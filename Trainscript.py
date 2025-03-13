@@ -101,7 +101,7 @@ def main():
         dataset=train_dataset,
         batch_size=conf.batch_size,
         shuffle=True,
-        num_workers=conf.num_workers,
+        num_workers=8,
     )
 
     print("Setting lr scheduler")
@@ -120,9 +120,6 @@ def main():
         scheduler=scheduler,
         save_path=conf.save_path,
     )
-
-    
-
 
 
 if __name__ == "__main__":
