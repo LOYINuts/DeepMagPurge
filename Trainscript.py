@@ -3,6 +3,7 @@ from utils import config
 from tqdm import tqdm
 import torch
 import os
+import argparse
 from torch.utils.data.dataloader import DataLoader
 from model import TaxonClassifier, Dataset
 
@@ -62,46 +63,58 @@ def train(
 
 
 def main():
-    conf = config.AllConfig
-    model_path = os.path.join(conf.save_path, "checkpoint.pt")
-    model = TaxonClassifier.TaxonModel(
-        vocab_size=conf.vocab_size,
-        embedding_size=conf.embedding_size,
-        hidden_size=conf.hidden_size,
-        device=conf.device,
-        max_len=conf.max_len,
-        num_layers=conf.num_layers,
-        num_class=conf.num_class,
-        drop_out=conf.drop_prob,
+    parser = argparse.ArgumentParser(description="DeepMAGPurge")
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="./data/config.yaml",
+        help="path to config yaml file",
     )
-    model = model.to(device=conf.device)
+    args = parser.parse_args()
+
+    conf = config.load_config(args.config)
+    assert conf is not None, ValueError("The config yaml is none!")
+    model_path = os.path.join(conf["save_path"], "checkpoint.pt")
+    model = TaxonClassifier.TaxonModel(
+        vocab_size=conf["vocab_size"],
+        embedding_size=conf["embedding_size"],
+        hidden_size=conf["hidden_size"],
+        device=conf["device"],
+        max_len=conf["max_len"],
+        num_layers=conf["num_layers"],
+        num_class=conf["num_class"],
+        drop_out=conf["drop_prob"],
+    )
+    model = model.to(device=conf["device"])
     lossF = torch.nn.CrossEntropyLoss()
 
     if os.path.exists(model_path) is True:
         print("Loading existing model state_dict......")
-        checkpoint = torch.load(model_path, map_location=conf.device, weights_only=True)
+        checkpoint = torch.load(
+            model_path, map_location=conf["device"], weights_only=True
+        )
         model.load_state_dict(checkpoint)
     else:
         print("No existing model state......")
 
-    optimizer = torch.optim.NAdam(model.parameters(), lr=conf.lr)
+    optimizer = torch.optim.NAdam(model.parameters(), lr=conf["lr"])
 
     print("Loading Dict Files......")
-    all_dict = Dataset.Dictionary(conf.KmerFilePath, conf.TaxonFilePath)
+    all_dict = Dataset.Dictionary(conf["KmerFilePath"], conf["TaxonFilePath"])
 
     print("Loading dataset......")
     train_dataset = Dataset.SeqDataset(
-        max_len=conf.max_len,
-        input_path=conf.TrainDataPath,
+        max_len=conf["max_len"],
+        input_path=conf["TrainDataPath"],
         all_dict=all_dict,
-        k=conf.kmer,
+        k=conf["kmer"],
         mode="train",
     )
     train_dataloader = DataLoader(
         dataset=train_dataset,
-        batch_size=conf.batch_size,
+        batch_size=conf["batch_size"],
         shuffle=True,
-        num_workers=8,
+        num_workers=16,
     )
 
     print("Setting lr scheduler")
@@ -111,14 +124,14 @@ def main():
 
     print("Start Training")
     train(
-        epochs=conf.epoch,
+        epochs=conf["epoch"],
         net=model,
         trainDataLoader=train_dataloader,
-        device=conf.device,
+        device=conf["device"],
         lossF=lossF,
         optimizer=optimizer,
         scheduler=scheduler,
-        save_path=conf.save_path,
+        save_path=conf["save_path"],
     )
 
 
