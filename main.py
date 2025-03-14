@@ -86,33 +86,58 @@ def train(
         net.train(True)
         total_train_loss = 0
         total_train_acc = 0
+        total_conf_50_acc = 0  # 累计置信度为 50% 的准确率
+        num_conf_50_samples = 0  # 记录置信度大于 50% 的样本数量
         for step, (train_seq, train_labels) in enumerate(processBar):
             train_seq = train_seq.to(device)
             train_labels = train_labels.to(device)
             optimizer.zero_grad()
             outputs = net(train_seq)
             loss = lossF(outputs, train_labels)
-            total_train_loss += loss
-            predictions = torch.argmax(outputs, dim=1)
-            accuracy = torch.sum(predictions == train_labels) / train_labels.shape[0]
-            total_train_acc += accuracy
             loss.backward()
             optimizer.step()
             scheduler.step()
+
+            total_train_loss += loss
+            # 普通准确率计算(置信度为0)
+            predictions = torch.argmax(outputs, dim=1)
+            accuracy = torch.sum(predictions == train_labels) / train_labels.shape[0]
+            total_train_acc += accuracy
+            # 计算置信度为 50% 的准确率
+            probs = torch.softmax(outputs, dim=1)
+            max_probs, _ = torch.max(probs, dim=1)
+            conf_50_mask = max_probs >= 0.5
+            conf_50_acc = torch.tensor(0)
+            if conf_50_mask.sum() > 0:
+                conf_50_preds = predictions[conf_50_mask]
+                conf_50_labels = train_labels[conf_50_mask]
+                conf_50_acc = (
+                    torch.sum(conf_50_preds == conf_50_labels) / conf_50_labels.shape[0]
+                )
+                total_conf_50_acc += conf_50_acc
+                num_conf_50_samples += 1
+
             processBar.set_description(
-                "[%d/%d] Loss: %.4f, Acc: %.4f"
-                % (epoch, epochs, loss.item(), accuracy.item())
+                "[%d/%d] Loss: %.4f, Acc: %.4f Conf50 Acc: %.4f"
+                % (epoch, epochs, loss.item(), accuracy.item(), conf_50_acc.item())
             )
             if step == len(processBar) - 1:
+                # 显示置信度为50%的准确率
+                if num_conf_50_samples > 0:
+                    conf_50_avg_acc = total_conf_50_acc / num_conf_50_samples
+                else:
+                    conf_50_avg_acc = 0
+                conf_50_avg_acc = torch.tensor(conf_50_avg_acc)
                 train_avg_loss = total_train_loss / len(processBar)
                 train_avg_acc = total_train_acc / len(processBar)
                 processBar.set_description(
-                    "[%d/%d] Avg Loss: %.4f, Avg Acc: %.4f"
+                    "[%d/%d] Avg Loss: %.4f, Avg Acc: %.4f, Avg Conf50 Acc: %.4f"
                     % (
                         epoch,
                         epochs,
                         train_avg_loss.item(),
                         train_avg_acc.item(),
+                        conf_50_avg_acc.item(),
                     )
                 )
                 if not Best_loss or train_avg_loss < Best_loss:
