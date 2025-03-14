@@ -10,23 +10,23 @@ from model import TaxonClassifier, Dataset
 
 def train_setup(conf):
     model_path = os.path.join(conf["save_path"], "checkpoint.pt")
+    train_device = torch.device(conf["device"])
     model = TaxonClassifier.TaxonModel(
         vocab_size=conf["vocab_size"],
         embedding_size=conf["embedding_size"],
         hidden_size=conf["hidden_size"],
-        device=conf["device"],
+        device=train_device,
         max_len=conf["max_len"],
         num_layers=conf["num_layers"],
         num_class=conf["num_class"],
         drop_out=conf["drop_prob"],
     )
-
-    model = model.to(device=conf["device"])
+    model = model.to(device=train_device)
     lossF = torch.nn.CrossEntropyLoss()
     if os.path.exists(model_path) is True:
         print("Loading existing model state_dict......")
         checkpoint = torch.load(
-            model_path, map_location=conf["device"], weights_only=True
+            model_path, map_location=train_device, weights_only=True
         )
         model.load_state_dict(checkpoint)
     else:
@@ -62,7 +62,7 @@ def train_setup(conf):
         epochs=conf["epoch"],
         net=model,
         trainDataLoader=train_dataloader,
-        device=conf["device"],
+        device=train_device,
         lossF=lossF,
         optimizer=optimizer,
         scheduler=scheduler,
@@ -156,19 +156,19 @@ def evaluate_setup(conf):
         vocab_size=conf["vocab_size"],
         embedding_size=conf["embedding_size"],
         hidden_size=conf["hidden_size"],
-        device=conf["device"],
+        device=torch.device("cpu"),
         max_len=conf["max_len"],
         num_layers=conf["num_layers"],
         num_class=conf["num_class"],
         drop_out=conf["drop_prob"],
     )
-    model = model.to(device=conf["device"])
+    model = model.to(device=torch.device("cpu"))
     lossF = torch.nn.CrossEntropyLoss()
 
     if os.path.exists(model_path) is True:
         print("Loading existing model state_dict......")
         checkpoint = torch.load(
-            model_path, map_location=conf["device"], weights_only=True
+            model_path, map_location=torch.device("cpu"), weights_only=True
         )
         model.load_state_dict(checkpoint)
     else:
