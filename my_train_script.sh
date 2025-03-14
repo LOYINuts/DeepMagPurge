@@ -1,2 +1,2 @@
 #!/bin/bash
-/home/lys/gh/envs/bioenv/bin/python Trainscript.py;
+/home/lys/gh/envs/bioenv/bin/python main.py;

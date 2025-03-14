@@ -1,1 +1,1 @@
-/home/lys/gh/envs/bioenv/bin/python Testscript.py;
+/home/lys/gh/envs/bioenv/bin/python main.py --mode eval;
