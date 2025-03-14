@@ -1,4 +1,3 @@
-import torch
 import yaml
 
 
@@ -13,7 +12,6 @@ def load_config(config_file):
             # 使用 yaml.safe_load 方法加载 YAML 文件内容
             config = yaml.safe_load(f)
         # 检查是否有可用的 CUDA 设备，若有则使用 CUDA，否则使用 CPU
-        config["device"] = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         return config
     except FileNotFoundError:
         print(f"配置文件 {config_file} 未找到，请检查文件路径。")

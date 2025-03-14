@@ -107,7 +107,7 @@ def train(
             probs = torch.softmax(outputs, dim=1)
             max_probs, _ = torch.max(probs, dim=1)
             conf_50_mask = max_probs >= 0.5
-            conf_50_acc = torch.tensor(0)
+            conf_50_acc = 0
             if conf_50_mask.sum() > 0:
                 conf_50_preds = predictions[conf_50_mask]
                 conf_50_labels = train_labels[conf_50_mask]
@@ -117,6 +117,7 @@ def train(
                 total_conf_50_acc += conf_50_acc
                 num_conf_50_samples += 1
 
+            conf_50_acc = torch.as_tensor(conf_50_acc)
             processBar.set_description(
                 "[%d/%d] Loss: %.4f, Acc: %.4f Conf50 Acc: %.4f"
                 % (epoch, epochs, loss.item(), accuracy.item(), conf_50_acc.item())
@@ -127,9 +128,9 @@ def train(
                     conf_50_avg_acc = total_conf_50_acc / num_conf_50_samples
                 else:
                     conf_50_avg_acc = 0
-                conf_50_avg_acc = torch.tensor(conf_50_avg_acc)
-                train_avg_loss = total_train_loss / len(processBar)
-                train_avg_acc = total_train_acc / len(processBar)
+                train_avg_loss = torch.as_tensor(total_train_loss / len(processBar))
+                train_avg_acc = torch.as_tensor(total_train_acc / len(processBar))
+                conf_50_avg_acc = torch.as_tensor(conf_50_avg_acc)
                 processBar.set_description(
                     "[%d/%d] Avg Loss: %.4f, Avg Acc: %.4f, Avg Conf50 Acc: %.4f"
                     % (
@@ -225,7 +226,7 @@ def evaluate(
             probs = torch.softmax(outputs, dim=1)
             max_probs, _ = torch.max(probs, dim=1)
             conf_50_mask = max_probs >= 0.5
-            conf_50_acc = torch.tensor(0)
+            conf_50_acc = 0
             if conf_50_mask.sum() > 0:
                 conf_50_preds = predictions[conf_50_mask]
                 conf_50_labels = test_labels[conf_50_mask]
@@ -234,19 +235,20 @@ def evaluate(
                 )
                 total_conf_50_acc += conf_50_acc
                 num_conf_50_samples += 1
+            conf_50_acc = torch.as_tensor(conf_50_acc)
             processBar.set_description(
                 "Loss: %.4f, Acc: %.4f, Conf50 Acc: %.4f"
                 % (loss.item(), acc.item(), conf_50_acc.item())
             )
-        total_loss = torch.tensor(total_loss / len(testDataLoader))
-        total_acc = torch.tensor(total_acc / len(testDataLoader))
+        total_loss = torch.as_tensor(total_loss / len(testDataLoader))
+        total_acc = torch.as_tensor(total_acc / len(testDataLoader))
         if num_conf_50_samples > 0:
             conf_50_avg_acc = total_conf_50_acc / num_conf_50_samples
         else:
             conf_50_avg_acc = 0
-        conf_50_avg_acc = torch.tensor(conf_50_avg_acc)
+        conf_50_avg_acc = torch.as_tensor(conf_50_avg_acc)
         print(
-            f"Avg Test Loss: {total_loss.item():.4f}, Avg Test Acc: {total_acc.item():.4f}, Avg Conf50 Acc: {conf_50_acc.item()}"
+            f"Avg Test Loss: {total_loss.item():.4f}, Avg Test Acc: {total_acc.item():.4f}, Avg Conf50 Acc: {conf_50_avg_acc.item()}"
         )
 
 
