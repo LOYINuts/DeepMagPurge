@@ -210,6 +210,8 @@ def evaluate(
     net.eval()
     total_loss = 0
     total_acc = 0
+    total_conf_50_acc = 0  # 累计置信度为 50% 的准确率
+    num_conf_50_samples = 0  # 记录置信度大于 50% 的样本数量
     with torch.no_grad():
         processBar = tqdm(testDataLoader, unit="step")
         for test_seq, test_labels in processBar:
@@ -219,13 +221,32 @@ def evaluate(
             loss = lossF(outputs, test_labels)
             total_loss += loss
             total_acc += acc
+            # 计算置信度为 50% 的准确率
+            probs = torch.softmax(outputs, dim=1)
+            max_probs, _ = torch.max(probs, dim=1)
+            conf_50_mask = max_probs >= 0.5
+            conf_50_acc = torch.tensor(0)
+            if conf_50_mask.sum() > 0:
+                conf_50_preds = predictions[conf_50_mask]
+                conf_50_labels = test_labels[conf_50_mask]
+                conf_50_acc = (
+                    torch.sum(conf_50_preds == conf_50_labels) / conf_50_labels.shape[0]
+                )
+                total_conf_50_acc += conf_50_acc
+                num_conf_50_samples += 1
             processBar.set_description(
-                "Loss: %.4f, Acc: %.4f" % (loss.item(), acc.item())
+                "Loss: %.4f, Acc: %.4f, Conf50 Acc: %.4f"
+                % (loss.item(), acc.item(), conf_50_acc.item())
             )
         total_loss = torch.tensor(total_loss / len(testDataLoader))
         total_acc = torch.tensor(total_acc / len(testDataLoader))
+        if num_conf_50_samples > 0:
+            conf_50_avg_acc = total_conf_50_acc / num_conf_50_samples
+        else:
+            conf_50_avg_acc = 0
+        conf_50_avg_acc = torch.tensor(conf_50_avg_acc)
         print(
-            f"Avg Test Loss: {total_loss.item():.4f}, Avg Test Acc: {total_acc.item():.4f}"
+            f"Avg Test Loss: {total_loss.item():.4f}, Avg Test Acc: {total_acc.item():.4f}, Avg Conf50 Acc: {conf_50_acc.item()}"
         )
 
 
@@ -260,6 +281,7 @@ def main():
         predict()
     else:
         raise Exception("非法的运行模式(mode)!,请在 train, eval, predict 中选择")
+
 
 if __name__ == "__main__":
     main()
