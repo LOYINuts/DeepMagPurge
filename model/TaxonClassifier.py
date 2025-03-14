@@ -1,7 +1,5 @@
 from torch import nn
-import LSTMLayer
-import EmbeddingLayer
-import AttentionLayer
+from . import LSTMLayer,EmbeddingLayer,AttentionLayer
 
 
 class TaxonModel(nn.Module):
