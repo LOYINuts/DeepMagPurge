@@ -260,3 +260,6 @@ def main():
         predict()
     else:
         raise Exception("非法的运行模式(mode)!,请在 train, eval, predict 中选择")
+
+if __name__ == "__main__":
+    main()
