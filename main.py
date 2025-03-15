@@ -9,6 +9,22 @@ from model import TaxonClassifier, Dataset
 import logging
 
 
+def load_model(
+    model_path: str,
+    model: torch.nn.Module,
+    device: torch.device,
+    logger: logging.Logger,
+):
+    if os.path.exists(model_path) is True:
+        logger.info("Loading existing model state_dict......")
+        checkpoint = torch.load(model_path, map_location=device, weights_only=True)
+        model.load_state_dict(checkpoint)
+        return True
+    else:
+        logger.info("No existing model state......")
+        return False
+
+
 def setup_logger(name: str, log_file: str, level=logging.INFO):
     """设置日志记录器"""
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
@@ -41,15 +57,7 @@ def train_setup(conf, logger: logging.Logger):
     )
     model = model.to(device=train_device)
     lossF = torch.nn.CrossEntropyLoss()
-    if os.path.exists(model_path) is True:
-        logger.info("Loading existing model state_dict......")
-        checkpoint = torch.load(
-            model_path, map_location=train_device, weights_only=True
-        )
-        model.load_state_dict(checkpoint)
-    else:
-        logger.info("No existing model state......")
-
+    load_model(model_path=model_path, model=model, device=train_device, logger=logger)
     optimizer = torch.optim.NAdam(model.parameters(), lr=conf["lr"])
 
     logger.info("Loading Dict Files......")
@@ -195,13 +203,14 @@ def evaluate_setup(conf, logger: logging.Logger):
     for key, value in conf.items():
         logger.info(f"{key}: {value}")
 
+    eval_device = torch.device("cpu")
     torch.set_num_threads(conf["num_workers"])
     model_path = os.path.join(conf["save_path"], "checkpoint.pt")
     model = TaxonClassifier.TaxonModel(
         vocab_size=conf["vocab_size"],
         embedding_size=conf["embedding_size"],
         hidden_size=conf["hidden_size"],
-        device=torch.device("cpu"),
+        device=eval_device,
         max_len=conf["max_len"],
         num_layers=conf["num_layers"],
         num_class=conf["num_class"],
@@ -209,17 +218,11 @@ def evaluate_setup(conf, logger: logging.Logger):
     )
     model = model.to(device=torch.device("cpu"))
     lossF = torch.nn.CrossEntropyLoss()
-
-    if os.path.exists(model_path) is True:
-        logger.info("Loading existing model state_dict......")
-        checkpoint = torch.load(
-            model_path, map_location=torch.device("cpu"), weights_only=True
-        )
-        model.load_state_dict(checkpoint)
-    else:
-        logger.info(
-            "No existing model state. You can't run eval mode without an existing model!"
-        )
+    loaded = load_model(
+        model_path=model_path, model=model, device=eval_device, logger=logger
+    )
+    if not loaded:
+        logger.info("You can't run eval mode without an existing model!")
         return
 
     logger.info("Loading Dict Files......")
