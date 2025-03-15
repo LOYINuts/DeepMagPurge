@@ -163,7 +163,7 @@ def train(
             optimizer.zero_grad()
 
             # 自动混合精度上下文
-            with torch.amp.autocast():  # type: ignore
+            with torch.amp.autocast("cuda"):  # type: ignore
                 outputs = net(train_seq)
                 loss = lossF(outputs, train_labels)
 
