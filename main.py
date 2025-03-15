@@ -81,6 +81,7 @@ def train(
     save_path: str,
 ):
     Best_loss = None
+    scaler = torch.amp.GradScaler(device=device)  # type: ignore
     for epoch in range(1, epochs + 1):
         processBar = tqdm(trainDataLoader, unit="step")
         net.train(True)
@@ -88,14 +89,20 @@ def train(
         total_train_acc = 0
         total_conf_50_acc = 0  # 累计置信度为 50% 的准确率
         num_conf_50_samples = 0  # 记录置信度大于 50% 的样本数量
+
         for step, (train_seq, train_labels) in enumerate(processBar):
             train_seq = train_seq.to(device)
             train_labels = train_labels.to(device)
             optimizer.zero_grad()
-            outputs = net(train_seq)
-            loss = lossF(outputs, train_labels)
-            loss.backward()
-            optimizer.step()
+
+            # 自动混合精度上下文
+            with torch.amp.autocast():  # type: ignore
+                outputs = net(train_seq)
+                loss = lossF(outputs, train_labels)
+
+            scaler.scale(loss).backward()  # 缩放损失反向传播
+            scaler.step(optimizer) # 更新参数
+            scaler.update() # 更新缩放器
             scheduler.step()
 
             total_train_loss += loss
@@ -248,7 +255,7 @@ def evaluate(
             conf_50_avg_acc = 0
         conf_50_avg_acc = torch.as_tensor(conf_50_avg_acc)
         print(
-            f"Avg Test Loss: {total_loss.item():.4f}, Avg Test Acc: {total_acc.item():.4f}, Avg Conf50 Acc: {conf_50_avg_acc.item()}"
+            f"Avg Test Loss: {total_loss.item():.4f}, Avg Test Acc: {total_acc.item():.4f}, Avg Conf50 Acc: {conf_50_avg_acc.item():.4f}"
         )
 
 
