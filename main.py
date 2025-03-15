@@ -7,6 +7,23 @@ import argparse
 from torch.utils.data.dataloader import DataLoader
 from model import TaxonClassifier, Dataset
 import logging
+from Bio import SeqIO
+import numpy as np
+
+
+def setup_model(conf, device):
+    model = TaxonClassifier.TaxonModel(
+        vocab_size=conf["vocab_size"],
+        embedding_size=conf["embedding_size"],
+        hidden_size=conf["hidden_size"],
+        device=device,
+        max_len=conf["max_len"],
+        num_layers=conf["num_layers"],
+        num_class=conf["num_class"],
+        drop_out=conf["drop_prob"],
+    )
+    model = model.to(device=device)
+    return model
 
 
 def load_model(
@@ -62,17 +79,7 @@ def train_setup(conf, logger: logging.Logger):
 
     model_path = os.path.join(conf["save_path"], "checkpoint.pt")
     train_device = torch.device(conf["device"])
-    model = TaxonClassifier.TaxonModel(
-        vocab_size=conf["vocab_size"],
-        embedding_size=conf["embedding_size"],
-        hidden_size=conf["hidden_size"],
-        device=train_device,
-        max_len=conf["max_len"],
-        num_layers=conf["num_layers"],
-        num_class=conf["num_class"],
-        drop_out=conf["drop_prob"],
-    )
-    model = model.to(device=train_device)
+    model = setup_model(conf=conf, device=train_device)
     lossF = torch.nn.CrossEntropyLoss()
     load_model(model_path=model_path, model=model, device=train_device, logger=logger)
     optimizer = torch.optim.NAdam(model.parameters(), lr=conf["lr"])
@@ -257,17 +264,7 @@ def evaluate_setup(conf, logger: logging.Logger):
     eval_device = torch.device("cpu")
     torch.set_num_threads(conf["num_workers"])
     model_path = os.path.join(conf["save_path"], "checkpoint.pt")
-    model = TaxonClassifier.TaxonModel(
-        vocab_size=conf["vocab_size"],
-        embedding_size=conf["embedding_size"],
-        hidden_size=conf["hidden_size"],
-        device=eval_device,
-        max_len=conf["max_len"],
-        num_layers=conf["num_layers"],
-        num_class=conf["num_class"],
-        drop_out=conf["drop_prob"],
-    )
-    model = model.to(device=torch.device("cpu"))
+    model = setup_model(conf, eval_device)
     lossF = torch.nn.CrossEntropyLoss()
     loaded = load_model(
         model_path=model_path, model=model, device=eval_device, logger=logger
@@ -307,7 +304,7 @@ def evaluate(
     logger: logging.Logger,
 ):
     """评估模型的函数。
-    
+
     :param net: 要评估的模型实例
     :param testDataLoader: 测试数据加载器，用于批量加载测试数据
     :param lossF: 损失函数，用于计算模型预测结果与真实标签之间的损失
@@ -372,8 +369,76 @@ def evaluate(
         logger.info("-" * 80)
 
 
-def predict():
-    pass
+def predict_one_record(
+    model: torch.nn.Module,
+    seq_data: DataLoader,
+    device: torch.device,
+    threshold: float = 0.5,
+) -> dict:
+    model.eval()
+    weighted_probs = 0
+    total_weight = 0
+    with torch.no_grad():
+        for seq in seq_data:
+            seq = seq.to(device)
+            logits = model(seq)
+            probs = torch.softmax(logits, dim=1)
+            # 动态计算权重（基于每个样本的预测置信度）
+            sample_weights, _ = torch.max(probs, dim=1)  # 获取每个样本的最大概率
+            weighted_probs += torch.sum(probs * sample_weights.unsqueeze(1), dim=0)
+            total_weight += torch.sum(sample_weights)
+
+    avg_probs = torch.as_tensor(weighted_probs / total_weight).cpu().numpy()
+
+    # 置信度决策逻辑
+    max_prob_idx = np.argmax(avg_probs)
+    max_prob = avg_probs[max_prob_idx]
+
+    if max_prob >= threshold:
+        return {
+            "prediction": int(max_prob_idx),
+            "confidence": float(max_prob),
+            "status": "high_confidence",
+        }
+    else:
+        top3_indices = np.argsort(avg_probs)[-3:][::-1]
+        top3_probs = avg_probs[top3_indices]
+        return {
+            "top3": [
+                {"class": int(idx), "prob": float(prob)}
+                for idx, prob in zip(top3_indices, top3_probs)
+            ],
+            "confidence": float(max_prob),
+            "status": "low_confidence",
+        }
+
+
+def predict_one_file(
+    model: torch.nn.Module,
+    file,
+    conf,
+    all_dict: Dataset.Dictionary,
+    device: torch.device,
+):
+    with open(file, "r") as handle:
+        for rec in SeqIO.parse(handle, "fasta"):
+            rec_dataset = Dataset.RecordSeqDataset(
+                k=conf["kmer"],
+                all_dict=all_dict,
+                record=rec,
+            )
+            rec_dataloader = DataLoader(rec_dataset, batch_size=128, shuffle=False)
+            prediction = predict_one_record(
+                model=model, seq_data=rec_dataloader, device=device
+            )
+
+
+def predict_files(conf, logger: logging.Logger):
+    model_path = os.path.join(conf["save_path"], "checkpoint.pt")
+    device = torch.device(conf["device"])
+    model = setup_model(conf, device)
+    all_dict = Dataset.Dictionary(conf["KmerFilePath"], conf["TaxonFilePath"])
+    load_model(model_path=model_path, model=model, device=device, logger=logger)
 
 
 def main():
@@ -403,7 +468,8 @@ def main():
         eval_logger = setup_logger("eval_logger", "logs/eval.log")
         evaluate_setup(conf=conf, logger=eval_logger)
     elif run_mode == "predict":
-        predict()
+        predict_logger = setup_logger("predict_logger", "logs/predict.log")
+        predict_files(conf=conf, logger=predict_logger)
     else:
         logging.error("非法的运行模式(mode)!,请在 train, eval, predict 中选择")
         raise Exception("非法的运行模式(mode)!,请在 train, eval, predict 中选择")

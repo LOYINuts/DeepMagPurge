@@ -3,9 +3,10 @@ from utils import DataProcess
 from Bio import SeqIO
 from tqdm import tqdm
 import torch
+import numpy as np
 
 
-def read_file2data(filepath: str, k: int, word2idx: dict, max_len: int, mode: str):
+def file2data(filepath: str, k: int, word2idx: dict, max_len: int, mode: str):
     """
     读取文件将数据提取出来
 
@@ -63,7 +64,7 @@ class SeqDataset(Dataset):
         k: int,
         mode: str,
     ):
-        self.Data, self.Label = read_file2data(
+        self.Data, self.Label = file2data(
             input_path, k, all_dict.kmer2idx, max_len, mode
         )
         self.Data = torch.stack(self.Data)
@@ -76,3 +77,64 @@ class SeqDataset(Dataset):
         data = self.Data[index]
         label = self.Label[index]
         return data, label
+
+
+class RecordSeqDataset(Dataset):
+    def __init__(
+        self,
+        k: int,
+        all_dict: Dictionary,
+        record,
+        sub_seq_len=150,
+        step=75,
+        max_samples=500,
+    ) -> None:
+        self.k = k
+        self.name = record.id
+        self.sub_seq_len = sub_seq_len
+        self.step = step
+        self.all_dict = all_dict
+        self.Data = []
+        seq = str(record.seq)
+
+        # 自动选择处理模式
+        if len(seq) >= sub_seq_len:
+            self.Data = self._generate_windows(seq, max_samples)
+            self.Data = torch.stack(self.Data)
+        else:
+            raise ValueError(
+                f"Sequence length ({len(seq)}) is shorter than {sub_seq_len}"
+            )
+
+    def _generate_windows(self, seq: str, max_samples: int) -> list[torch.Tensor]:
+        """智能生成窗口策略"""
+        total_possible = len(seq) - self.sub_seq_len + 1
+
+        # 短序列模式：全量滑动窗口
+        if total_possible <= max_samples:
+            return [
+                self._process_window(seq, i)
+                for i in range(0, total_possible, self.step)
+            ]
+
+        # 长序列模式：随机采样
+        sample_size = min(max_samples, total_possible)
+        positions = np.random.choice(total_possible, size=sample_size, replace=False)
+        return [self._process_window(seq, pos) for pos in sorted(positions)]
+
+    def _process_window(self, seq: str, start_pos: int) -> torch.Tensor:
+        """核心窗口处理函数"""
+        end_pos = start_pos + self.sub_seq_len
+        sub_seq = seq[start_pos:end_pos]
+        return DataProcess.seq2kmer(
+            seq=sub_seq,
+            k=self.k,
+            word2idx=self.all_dict.kmer2idx,
+            max_len=self.sub_seq_len - self.k + 1,
+        )
+
+    def __len__(self):
+        return len(self.Data)
+
+    def __getitem__(self, index):
+        return self.Data[index]
