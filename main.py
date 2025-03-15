@@ -324,6 +324,7 @@ def main():
     conf = config.load_config(args.config)
     run_mode = args.mode
 
+    os.makedirs("./logs", exist_ok=True)
     if run_mode == "train":
         train_logger = setup_logger("train_logger", "logs/train.log")
         train_setup(conf=conf, logger=train_logger)
