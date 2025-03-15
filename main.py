@@ -15,6 +15,13 @@ def load_model(
     device: torch.device,
     logger: logging.Logger,
 ):
+    """加载预训练模型的函数。
+
+    :param model_path: 模型文件的路径
+    :param model: 要加载权重的模型实例
+    :param device: 计算设备，如CPU或GPU
+    :param logger: 日志记录器，用于记录加载过程中的信息
+    """
     if os.path.exists(model_path) is True:
         logger.info("Loading existing model state_dict......")
         checkpoint = torch.load(model_path, map_location=device, weights_only=True)
@@ -26,7 +33,12 @@ def load_model(
 
 
 def setup_logger(name: str, log_file: str, level=logging.INFO):
-    """设置日志记录器"""
+    """设置日志记录器的函数。
+
+    :param name: 日志记录器的名称
+    :param log_file: 日志文件的路径
+    :param level: 日志记录的级别，默认为INFO
+    """
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
     handler = logging.FileHandler(log_file)
     handler.setFormatter(formatter)
@@ -39,6 +51,11 @@ def setup_logger(name: str, log_file: str, level=logging.INFO):
 
 
 def train_setup(conf, logger: logging.Logger):
+    """训练前的准备工作，数据加载、模型初始化等。
+
+    :param conf: 配置信息对象
+    :param logger: 日志记录器，用于记录准备过程中的信息
+    """
     logger.info("Parsed YAML configuration:")
     for key, value in conf.items():
         logger.info(f"{key}: {value}")
@@ -109,6 +126,18 @@ def train(
     save_path: str,
     logger: logging.Logger,
 ):
+    """训练函数。
+
+    :param epochs: 训练的轮数
+    :param net: 要训练的模型实例
+    :param trainDataLoader: 训练数据加载器，用于批量加载训练数据
+    :param device: 计算设备，如CPU或GPU
+    :param lossF: 损失函数，用于计算模型预测结果与真实标签之间的损失
+    :param optimizer: 优化器，用于更新模型的参数
+    :param scheduler: 学习率调度器，用于动态调整学习率
+    :param save_path: 模型保存的路径
+    :param logger: 日志记录器，用于记录训练过程中的信息
+    """
     Best_loss = None
     scaler = torch.amp.GradScaler(device=device)  # type: ignore
     for epoch in range(1, epochs + 1):
@@ -216,6 +245,11 @@ def train(
 
 
 def evaluate_setup(conf, logger: logging.Logger):
+    """评估前的准备工作，如加载测试数据等。
+
+    :param conf: 配置信息对象
+    :param logger: 日志记录器，用于记录准备过程中的信息
+    """
     logger.info("Parsed YAML configuration:")
     for key, value in conf.items():
         logger.info(f"{key}: {value}")
@@ -272,6 +306,13 @@ def evaluate(
     lossF: torch.nn.modules.loss._WeightedLoss,
     logger: logging.Logger,
 ):
+    """评估模型的函数。
+    
+    :param net: 要评估的模型实例
+    :param testDataLoader: 测试数据加载器，用于批量加载测试数据
+    :param lossF: 损失函数，用于计算模型预测结果与真实标签之间的损失
+    :param logger: 日志记录器，用于记录评估过程中的信息
+    """
     net.eval()
     total_loss = 0
     total_acc = 0

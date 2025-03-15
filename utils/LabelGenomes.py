@@ -2,7 +2,7 @@ import os
 from Bio import SeqIO
 
 
-def Label_One_Genomes(genome_path: str, label: int, output_path: str):
+def Label_One_Genomes(genome_path: str, label: str, output_path: str):
     with open(genome_path, "r") as handle:
         with open(output_path, "w") as fout:
             for seq in SeqIO.parse(handle, "fastq"):
