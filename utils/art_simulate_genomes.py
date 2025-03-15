@@ -42,7 +42,7 @@ def process_single_file(file: str):
 
     try:
         # 执行命令（禁用shell以提升安全性）
-        result = subprocess.run(
+        subprocess.run(
             cmd_args,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

@@ -118,7 +118,9 @@ def train(
         total_train_acc = 0
         total_conf_50_acc = 0  # 累计置信度为 50% 的准确率
         num_conf_50_samples = 0  # 记录置信度大于 50% 的样本数量
-
+        log_interval = 50
+        msg = "-" * 30 + f"Epoch:{epoch}" + "-" * 30
+        logger.info(msg)
         for step, (train_seq, train_labels) in enumerate(processBar):
             train_seq = train_seq.to(device)
             train_labels = train_labels.to(device)
@@ -158,6 +160,20 @@ def train(
                 "[%d/%d] Loss: %.4f, Acc: %.4f Conf50 Acc: %.4f"
                 % (epoch, epochs, loss.item(), accuracy.item(), conf_50_acc.item())
             )
+            # 每隔 log_interval 个 step 记录一次日志
+            if step % log_interval == 0:
+                logger.info(
+                    "Epoch:[%d/%d] Step:[%d/%d] Loss: %.4f, Acc: %.4f, Conf50 Acc: %.4f"
+                    % (
+                        epoch,
+                        epochs,
+                        step,
+                        len(processBar),
+                        loss.item(),
+                        accuracy.item(),
+                        conf_50_acc.item(),
+                    )
+                )
             if step == len(processBar) - 1:
                 # 显示置信度为50%的准确率
                 if num_conf_50_samples > 0:
@@ -194,7 +210,8 @@ def train(
                         torch.save(net.state_dict(), f)
 
         processBar.close()
-    logger.info("End training")
+    # 结束添加分割线
+    logger.info("Training Finished")
     logger.info("-" * 80)
 
 
@@ -260,9 +277,10 @@ def evaluate(
     total_acc = 0
     total_conf_50_acc = 0  # 累计置信度为 50% 的准确率
     num_conf_50_samples = 0  # 记录置信度大于 50% 的样本数量
+    log_interval = 50
     with torch.no_grad():
         processBar = tqdm(testDataLoader, unit="step")
-        for test_seq, test_labels in processBar:
+        for step, (test_seq, test_labels) in enumerate(processBar):
             outputs = net(test_seq)
             predictions = torch.argmax(outputs, dim=1)
             acc = torch.sum(predictions == test_labels) / test_labels.shape[0]
@@ -287,6 +305,18 @@ def evaluate(
                 "Loss: %.4f, Acc: %.4f, Conf50 Acc: %.4f"
                 % (loss.item(), acc.item(), conf_50_acc.item())
             )
+            # 每隔 log_interval 个 step 记录一次日志
+            if step % log_interval == 0:
+                logger.info(
+                    "[%d/%d] Loss: %.4f, Acc: %.4f, Conf50 Acc: %.4f"
+                    % (
+                        step,
+                        len(processBar),
+                        loss.item(),
+                        acc.item(),
+                        conf_50_acc.item(),
+                    )
+                )
         total_loss = torch.as_tensor(total_loss / len(testDataLoader))
         total_acc = torch.as_tensor(total_acc / len(testDataLoader))
         if num_conf_50_samples > 0:
