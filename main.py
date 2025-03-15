@@ -6,9 +6,27 @@ import os
 import argparse
 from torch.utils.data.dataloader import DataLoader
 from model import TaxonClassifier, Dataset
+import logging
 
 
-def train_setup(conf):
+def setup_logger(name: str, log_file: str, level=logging.INFO):
+    """设置日志记录器"""
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    handler = logging.FileHandler(log_file)
+    handler.setFormatter(formatter)
+
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    logger.addHandler(handler)
+
+    return logger
+
+
+def train_setup(conf, logger: logging.Logger):
+    logger.info("Parsed YAML configuration:")
+    for key, value in conf.items():
+        logger.info(f"{key}: {value}")
+
     model_path = os.path.join(conf["save_path"], "checkpoint.pt")
     train_device = torch.device(conf["device"])
     model = TaxonClassifier.TaxonModel(
@@ -24,20 +42,20 @@ def train_setup(conf):
     model = model.to(device=train_device)
     lossF = torch.nn.CrossEntropyLoss()
     if os.path.exists(model_path) is True:
-        print("Loading existing model state_dict......")
+        logger.info("Loading existing model state_dict......")
         checkpoint = torch.load(
             model_path, map_location=train_device, weights_only=True
         )
         model.load_state_dict(checkpoint)
     else:
-        print("No existing model state......")
+        logger.info("No existing model state......")
 
     optimizer = torch.optim.NAdam(model.parameters(), lr=conf["lr"])
 
-    print("Loading Dict Files......")
+    logger.info("Loading Dict Files......")
     all_dict = Dataset.Dictionary(conf["KmerFilePath"], conf["TaxonFilePath"])
 
-    print("Loading dataset......")
+    logger.info("Loading dataset......")
     train_dataset = Dataset.SeqDataset(
         max_len=conf["max_len"],
         input_path=conf["TrainDataPath"],
@@ -52,12 +70,13 @@ def train_setup(conf):
         num_workers=16,
     )
 
-    print("Setting lr scheduler")
+    logger.info("Setting lr scheduler")
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, len(train_dataloader)
     )
 
-    print("Start Training")
+    logger.info("Start Training")
+    logger.info("-" * 80)
     train(
         epochs=conf["epoch"],
         net=model,
@@ -67,6 +86,7 @@ def train_setup(conf):
         optimizer=optimizer,
         scheduler=scheduler,
         save_path=conf["save_path"],
+        logger=logger,
     )
 
 
@@ -79,6 +99,7 @@ def train(
     optimizer: torch.optim.Optimizer,
     scheduler: torch.optim.lr_scheduler.CosineAnnealingLR,
     save_path: str,
+    logger: logging.Logger,
 ):
     Best_loss = None
     scaler = torch.amp.GradScaler(device=device)  # type: ignore
@@ -101,8 +122,8 @@ def train(
                 loss = lossF(outputs, train_labels)
 
             scaler.scale(loss).backward()  # 缩放损失反向传播
-            scaler.step(optimizer) # 更新参数
-            scaler.update() # 更新缩放器
+            scaler.step(optimizer)  # 更新参数
+            scaler.update()  # 更新缩放器
             scheduler.step()
 
             total_train_loss += loss
@@ -148,6 +169,16 @@ def train(
                         conf_50_avg_acc.item(),
                     )
                 )
+                logger.info(
+                    "[%d/%d] Avg Loss: %.4f, Avg Acc: %.4f, Avg Conf50 Acc: %.4f"
+                    % (
+                        epoch,
+                        epochs,
+                        train_avg_loss.item(),
+                        train_avg_acc.item(),
+                        conf_50_avg_acc.item(),
+                    )
+                )
                 if not Best_loss or train_avg_loss < Best_loss:
                     Best_loss = train_avg_loss
                     model_save_path = os.path.join(save_path, "checkpoint.pt")
@@ -155,9 +186,15 @@ def train(
                         torch.save(net.state_dict(), f)
 
         processBar.close()
+    logger.info("End training")
+    logger.info("-" * 80)
 
 
-def evaluate_setup(conf):
+def evaluate_setup(conf, logger: logging.Logger):
+    logger.info("Parsed YAML configuration:")
+    for key, value in conf.items():
+        logger.info(f"{key}: {value}")
+
     torch.set_num_threads(conf["num_workers"])
     model_path = os.path.join(conf["save_path"], "checkpoint.pt")
     model = TaxonClassifier.TaxonModel(
@@ -174,19 +211,21 @@ def evaluate_setup(conf):
     lossF = torch.nn.CrossEntropyLoss()
 
     if os.path.exists(model_path) is True:
-        print("Loading existing model state_dict......")
+        logger.info("Loading existing model state_dict......")
         checkpoint = torch.load(
             model_path, map_location=torch.device("cpu"), weights_only=True
         )
         model.load_state_dict(checkpoint)
     else:
-        print("No existing model state......")
+        logger.info(
+            "No existing model state. You can't run eval mode without an existing model!"
+        )
         return
 
-    print("Loading Dict Files......")
+    logger.info("Loading Dict Files......")
     all_dict = Dataset.Dictionary(conf["KmerFilePath"], conf["TaxonFilePath"])
 
-    print("Loading dataset......")
+    logger.info("Loading dataset......")
     test_dataset = Dataset.SeqDataset(
         max_len=conf["max_len"],
         input_path=conf["TestDataPath"],
@@ -202,18 +241,16 @@ def evaluate_setup(conf):
         pin_memory=False,
         persistent_workers=True,  # 保持worker进程存活
     )
-    print("Start evaluating......")
-    evaluate(
-        net=model,
-        testDataLoader=test_dataloader,
-        lossF=lossF,
-    )
+    logger.info("Start evaluating......")
+    logger.info("-" * 80)
+    evaluate(net=model, testDataLoader=test_dataloader, lossF=lossF, logger=logger)
 
 
 def evaluate(
     net: torch.nn.Module,
     testDataLoader: DataLoader,
     lossF: torch.nn.modules.loss._WeightedLoss,
+    logger: logging.Logger,
 ):
     net.eval()
     total_loss = 0
@@ -254,9 +291,11 @@ def evaluate(
         else:
             conf_50_avg_acc = 0
         conf_50_avg_acc = torch.as_tensor(conf_50_avg_acc)
-        print(
+        logger.info(
             f"Avg Test Loss: {total_loss.item():.4f}, Avg Test Acc: {total_acc.item():.4f}, Avg Conf50 Acc: {conf_50_avg_acc.item():.4f}"
         )
+        logger.info("End evaluating")
+        logger.info("-" * 80)
 
 
 def predict():
@@ -283,12 +322,15 @@ def main():
     run_mode = args.mode
 
     if run_mode == "train":
-        train_setup(conf=conf)
+        train_logger = setup_logger("train_logger", "logs/train.log")
+        train_setup(conf=conf, logger=train_logger)
     elif run_mode == "eval":
-        evaluate_setup(conf=conf)
+        eval_logger = setup_logger("eval_logger", "logs/eval.log")
+        evaluate_setup(conf=conf, logger=eval_logger)
     elif run_mode == "predict":
         predict()
     else:
+        logging.error("非法的运行模式(mode)!,请在 train, eval, predict 中选择")
         raise Exception("非法的运行模式(mode)!,请在 train, eval, predict 中选择")
 
 
