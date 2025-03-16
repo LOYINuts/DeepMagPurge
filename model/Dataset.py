@@ -87,17 +87,19 @@ class RecordSeqDataset(Dataset):
         record,
         sub_seq_len=150,
         step=75,
-        max_samples=500,
+        max_samples=100,
+        threshold = 5000,
     ) -> None:
         self.k = k
         self.name = record.id
         self.sub_seq_len = sub_seq_len
         self.step = step
         self.all_dict = all_dict
+        self.threshold = threshold
         self.Data = []
         seq = str(record.seq)
 
-        # 自动选择处理模式
+        # 序列必须比送入模型的子序列长
         if len(seq) >= sub_seq_len:
             self.Data = self._generate_windows(seq, max_samples)
             self.Data = torch.stack(self.Data)
@@ -109,9 +111,8 @@ class RecordSeqDataset(Dataset):
     def _generate_windows(self, seq: str, max_samples: int) -> list[torch.Tensor]:
         """智能生成窗口策略"""
         total_possible = len(seq) - self.sub_seq_len + 1
-
         # 短序列模式：全量滑动窗口
-        if total_possible <= max_samples:
+        if len(seq) <= self.threshold:
             return [
                 self._process_window(seq, i)
                 for i in range(0, total_possible, self.step)
