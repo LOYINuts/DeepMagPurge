@@ -79,7 +79,7 @@ class SeqDataset(Dataset):
         return data, label
 
 
-class RecordSeqDataset(Dataset):
+class PredictSeqDataset(Dataset):
     def __init__(
         self,
         k: int,
@@ -139,3 +139,7 @@ class RecordSeqDataset(Dataset):
 
     def __getitem__(self, index):
         return self.Data[index]
+
+# TODO
+class BenchmarkDataset(Dataset):
+    pass

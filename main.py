@@ -422,7 +422,7 @@ def predict_one_file(
 ):
     with open(file, "r") as handle:
         for rec in SeqIO.parse(handle, "fasta"):
-            rec_dataset = Dataset.RecordSeqDataset(
+            rec_dataset = Dataset.PredictSeqDataset(
                 k=conf["kmer"],
                 all_dict=all_dict,
                 record=rec,

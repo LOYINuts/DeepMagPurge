@@ -1,9 +1,20 @@
 from . import config
 import os
-from model import TaxonClassifier,Dataset
+from model import TaxonClassifier, Dataset
 import torch
 from torch.utils.data.dataloader import DataLoader
+import torch.nn as nn
 
+# TODO
+def benchmark():
+    pass
+
+# TODO
+def benchmark_one_file(file:str,label:int,conf,model:nn.Module,all_dict:Dataset.Dictionary):
+    root_path = conf["BenchmarkDataPath"]
+    file_path = os.path.join(root_path,file)
+    pass
+         
 
 if __name__ == "__main__":
     conf = config.load_config("./data/config.yaml")
@@ -29,23 +40,19 @@ if __name__ == "__main__":
         model.load_state_dict(checkpoint)
     else:
         raise Exception("Can't run benchmark without existing model!")
-    
+
     print("Loading dict files......")
     all_dict = Dataset.Dictionary(conf["KmerFilePath"], conf["TaxonFilePath"])
-
-    print("Loading dataset......")
-    test_dataset = Dataset.SeqDataset(
-        max_len=conf["max_len"],
-        input_path=conf["TestDataPath"],
-        all_dict=all_dict,
-        k=conf["kmer"],
-        mode="eval",
-    )
-    test_dataloader = DataLoader(
-        dataset=test_dataset,
-        batch_size=conf["batch_size"],
-        shuffle=False,
-        num_workers=16,
-        pin_memory=False,
-        persistent_workers=True,  # 保持worker进程存活
-    )
+    print("Loading files2taxon.txt")
+    file_path = conf["BenchmarkFile2Taxon"]
+    file2taxon = {}
+    with open(file_path, "r") as f:
+        for line in f:
+            line = line.strip()
+            splits = line.split()
+            file, taxon = splits[0], splits[1]
+            label = all_dict.taxon2idx[taxon]
+            file2taxon[file] = label
+    for key,value in file2taxon:
+        pass
+    
