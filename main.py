@@ -261,7 +261,7 @@ def evaluate_setup(conf, logger: logging.Logger):
     for key, value in conf.items():
         logger.info(f"{key}: {value}")
 
-    eval_device = torch.device("cpu")
+    eval_device = torch.device(conf["eval_device"])
     torch.set_num_threads(conf["num_workers"])
     model_path = os.path.join(conf["save_path"], "checkpoint.pt")
     model = setup_model(conf, eval_device)
