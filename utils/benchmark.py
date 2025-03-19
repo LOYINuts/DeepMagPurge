@@ -1,7 +1,9 @@
 from . import config
 import os
-from model import TaxonClassifier
+from model import TaxonClassifier,Dataset
 import torch
+from torch.utils.data.dataloader import DataLoader
+
 
 if __name__ == "__main__":
     conf = config.load_config("./data/config.yaml")
@@ -28,3 +30,22 @@ if __name__ == "__main__":
     else:
         raise Exception("Can't run benchmark without existing model!")
     
+    print("Loading dict files......")
+    all_dict = Dataset.Dictionary(conf["KmerFilePath"], conf["TaxonFilePath"])
+
+    print("Loading dataset......")
+    test_dataset = Dataset.SeqDataset(
+        max_len=conf["max_len"],
+        input_path=conf["TestDataPath"],
+        all_dict=all_dict,
+        k=conf["kmer"],
+        mode="eval",
+    )
+    test_dataloader = DataLoader(
+        dataset=test_dataset,
+        batch_size=conf["batch_size"],
+        shuffle=False,
+        num_workers=16,
+        pin_memory=False,
+        persistent_workers=True,  # 保持worker进程存活
+    )
