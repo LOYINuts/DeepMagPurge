@@ -88,7 +88,7 @@ def train_setup(conf, logger: logging.Logger):
     all_dict = Dataset.Dictionary(conf["KmerFilePath"], conf["TaxonFilePath"])
     logger.info("Allocating memory......")
     num_elements = 16 * 1024 * 1024 * 1024 // 4
-    huge_tensor = torch.empty(num_elements, dtype=torch.float32).cuda()
+    huge_tensor = torch.empty(num_elements, dtype=torch.float32).cuda(train_device)
 
     logger.info("Loading dataset......")
     train_dataset = Dataset.SeqDataset(
