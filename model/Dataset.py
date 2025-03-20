@@ -142,12 +142,18 @@ class PredictSeqDataset(Dataset):
 
 
 class BenchmarkDataset(Dataset):
-    """benchmark使用的dataset，同样可作为什么都不进行处理的数据集
-    """
+    """benchmark使用的dataset，同样可作为什么都不进行处理的数据集"""
+
     def __init__(
-        self, k: int, file_path: str, all_dict: Dictionary, max_len: int = 150
+        self,
+        k: int,
+        file_path: str,
+        all_dict: Dictionary,
+        label: int,
+        max_len: int = 150,
     ) -> None:
         self.Data = []
+        self.Label = []
         with open(file=file_path, mode="r") as handle:
             for rec in SeqIO.parse(handle, "fasta"):
                 seq = str(rec.seq)
@@ -155,10 +161,13 @@ class BenchmarkDataset(Dataset):
                     seq=seq, k=k, word2idx=all_dict.kmer2idx, max_len=max_len
                 )
                 self.Data.append(kmer_tensor)
+                self.Label.append(label)
+
         self.Data = torch.stack(self.Data)
+        self.Label = torch.tensor(self.Label)
 
     def __len__(self):
         return len(self.Data)
 
     def __getitem__(self, index):
-        return self.Data[index]
+        return self.Data[index], self.Label[index]
