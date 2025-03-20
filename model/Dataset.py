@@ -55,7 +55,7 @@ class Dictionary:
         self.taxon2idx = DataProcess.TransferTaxon2Idx(taxon_file_path)
 
 
-class SeqDataset(Dataset):
+class TrainSeqDataset(Dataset):
     def __init__(
         self,
         max_len: int,
@@ -88,7 +88,7 @@ class PredictSeqDataset(Dataset):
         sub_seq_len=150,
         step=75,
         max_samples=100,
-        threshold = 5000,
+        threshold=5000,
     ) -> None:
         self.k = k
         self.name = record.id
@@ -140,6 +140,25 @@ class PredictSeqDataset(Dataset):
     def __getitem__(self, index):
         return self.Data[index]
 
-# TODO
+
 class BenchmarkDataset(Dataset):
-    pass
+    """benchmark使用的dataset，同样可作为什么都不进行处理的数据集
+    """
+    def __init__(
+        self, k: int, file_path: str, all_dict: Dictionary, max_len: int = 150
+    ) -> None:
+        self.Data = []
+        with open(file=file_path, mode="r") as handle:
+            for rec in SeqIO.parse(handle, "fasta"):
+                seq = str(rec.seq)
+                kmer_tensor = DataProcess.seq2kmer(
+                    seq=seq, k=k, word2idx=all_dict.kmer2idx, max_len=max_len
+                )
+                self.Data.append(kmer_tensor)
+        self.Data = torch.stack(self.Data)
+
+    def __len__(self):
+        return len(self.Data)
+
+    def __getitem__(self, index):
+        return self.Data[index]

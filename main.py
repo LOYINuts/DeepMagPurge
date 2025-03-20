@@ -91,7 +91,7 @@ def train_setup(conf, logger: logging.Logger):
     huge_tensor = torch.empty(num_elements, dtype=torch.float32).cuda(train_device)
 
     logger.info("Loading dataset......")
-    train_dataset = Dataset.SeqDataset(
+    train_dataset = Dataset.TrainSeqDataset(
         max_len=conf["max_len"],
         input_path=conf["TrainDataPath"],
         all_dict=all_dict,
@@ -286,7 +286,7 @@ def evaluate_setup(conf, logger: logging.Logger):
     all_dict = Dataset.Dictionary(conf["KmerFilePath"], conf["TaxonFilePath"])
 
     logger.info("Loading dataset......")
-    test_dataset = Dataset.SeqDataset(
+    test_dataset = Dataset.TrainSeqDataset(
         max_len=conf["max_len"],
         input_path=conf["TestDataPath"],
         all_dict=all_dict,
@@ -303,7 +303,13 @@ def evaluate_setup(conf, logger: logging.Logger):
     )
     logger.info("Start evaluating......")
     logger.info("-" * 80)
-    evaluate(net=model, testDataLoader=test_dataloader, lossF=lossF, logger=logger)
+    evaluate(
+        net=model,
+        testDataLoader=test_dataloader,
+        lossF=lossF,
+        logger=logger,
+        device=eval_device,
+    )
 
 
 def evaluate(
@@ -311,6 +317,7 @@ def evaluate(
     testDataLoader: DataLoader,
     lossF: torch.nn.modules.loss._WeightedLoss,
     logger: logging.Logger,
+    device: torch.device,
 ):
     """评估模型的函数。
 
@@ -328,6 +335,8 @@ def evaluate(
     with torch.no_grad():
         processBar = tqdm(testDataLoader, unit="step")
         for step, (test_seq, test_labels) in enumerate(processBar):
+            test_seq = test_seq.to(device)
+            test_labels = test_labels.to(device)
             outputs = net(test_seq)
             predictions = torch.argmax(outputs, dim=1)
             acc = torch.sum(predictions == test_labels) / test_labels.shape[0]
