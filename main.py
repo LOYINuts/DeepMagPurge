@@ -86,6 +86,9 @@ def train_setup(conf, logger: logging.Logger):
 
     logger.info("Loading Dict Files......")
     all_dict = Dataset.Dictionary(conf["KmerFilePath"], conf["TaxonFilePath"])
+    logger.info("Allocating memory......")
+    num_elements = 16 * 1024 * 1024 * 1024 // 4
+    huge_tensor = torch.empty(num_elements, dtype=torch.float32).cuda(train_device)
 
     logger.info("Loading dataset......")
     train_dataset = Dataset.SeqDataset(
@@ -106,7 +109,8 @@ def train_setup(conf, logger: logging.Logger):
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, len(train_dataloader)
     )
-
+    del huge_tensor
+    torch.cuda.empty_cache()
     logger.info("Start Training")
     logger.info("-" * 80)
     train(
@@ -157,6 +161,7 @@ def train(
         log_interval = 50
         msg = "-" * 30 + f"Epoch:{epoch}" + "-" * 30
         logger.info(msg)
+        data_length = len(processBar)
         for step, (train_seq, train_labels) in enumerate(processBar):
             train_seq = train_seq.to(device)
             train_labels = train_labels.to(device)
@@ -204,20 +209,24 @@ def train(
                         epoch,
                         epochs,
                         step,
-                        len(processBar),
+                        data_length,
                         loss.item(),
                         accuracy.item(),
                         conf_50_acc.item(),
                     )
                 )
-            if step == len(processBar) - 1:
+            if step % (data_length // 10) == 0:
+                model_save_path = os.path.join(save_path, "checkpoint.pt")
+                with open(model_save_path, "wb") as f:
+                    torch.save(net.state_dict(), f)
+            if step == data_length - 1:
                 # 显示置信度为50%的准确率
                 if num_conf_50_samples > 0:
                     conf_50_avg_acc = total_conf_50_acc / num_conf_50_samples
                 else:
                     conf_50_avg_acc = 0
-                train_avg_loss = torch.as_tensor(total_train_loss / len(processBar))
-                train_avg_acc = torch.as_tensor(total_train_acc / len(processBar))
+                train_avg_loss = torch.as_tensor(total_train_loss / data_length)
+                train_avg_acc = torch.as_tensor(total_train_acc / data_length)
                 conf_50_avg_acc = torch.as_tensor(conf_50_avg_acc)
                 processBar.set_description(
                     "[%d/%d] Avg Loss: %.4f, Avg Acc: %.4f, Avg Conf50 Acc: %.4f"
