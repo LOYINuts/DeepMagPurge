@@ -95,7 +95,7 @@ def benchmark_one_file(
     )
 
 
-if __name__ == "__main__":
+def benchmark_main():
     # 设置logger
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
     handler = logging.FileHandler("logs/benchmark.log")

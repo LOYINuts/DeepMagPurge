@@ -1,5 +1,5 @@
 import torch.optim.nadam
-from utils import config
+from utils import config,benchmark
 from tqdm import tqdm
 import torch
 import os
@@ -488,6 +488,8 @@ def main():
     elif run_mode == "predict":
         predict_logger = setup_logger("predict_logger", "logs/predict.log")
         predict_files(conf=conf, logger=predict_logger)
+    elif run_mode == "benchmark":
+        benchmark.benchmark_main()
     else:
         logging.error("非法的运行模式(mode)!,请在 train, eval, predict 中选择")
         raise Exception("非法的运行模式(mode)!,请在 train, eval, predict 中选择")
