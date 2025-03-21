@@ -1,4 +1,4 @@
-from . import config
+from utils import config
 import os
 from model import TaxonClassifier, Dataset
 import torch
