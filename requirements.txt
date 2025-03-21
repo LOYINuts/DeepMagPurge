@@ -1,0 +1,5 @@
+biopython==1.85
+numpy==2.2.4
+PyYAML==6.0.2
+torch==2.5.1
+tqdm==4.67.1
