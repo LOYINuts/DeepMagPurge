@@ -142,7 +142,7 @@ def benchmark_main():
             label = all_dict.taxon2idx[taxon]
             file2taxon[file] = label
             num_files += 1
-    for file, label in file2taxon:
+    for file, label in file2taxon.items():
         benchmark_one_file(
             file=file,
             label=label,
