@@ -79,7 +79,7 @@ def benchmark_one_file(
     root_path = conf["BenchmarkDataPath"]
     file_path = os.path.join(root_path, file)
     bm_dataset = Dataset.BenchmarkDataset(
-        k=conf["kmer"], file_path=file_path, all_dict=all_dict, label=label
+        k=conf["kmer"], file_path=file_path, all_dict=all_dict, label=int(label)
     )
     bm_dataloader = DataLoader(bm_dataset, batch_size=64)
     device = torch.device(conf["eval_device"])
