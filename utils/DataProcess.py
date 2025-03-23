@@ -1,4 +1,3 @@
-import torch
 import random
 
 _TRANSLATION_DICT = {
@@ -119,4 +118,4 @@ def seq2kmer(seq: str, k: int, word2idx: dict, max_len: int, trim: bool = False)
     else:
         # 否则截断
         kmer_list = kmer_list[:max_len]
-    return torch.tensor(kmer_list)
+    return kmer_list

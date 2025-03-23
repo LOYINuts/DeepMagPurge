@@ -4,9 +4,12 @@ from Bio import SeqIO
 from tqdm import tqdm
 import torch
 import numpy as np
+import polars as pl
 
 
-def file2data(filepath: str, k: int, word2idx: dict, max_len: int, mode: str):
+def file2data(
+    filepath: str, k: int, word2idx: dict, max_len: int, mode: str
+) -> tuple[list[torch.Tensor], list[int]]:
     """
     读取文件将数据提取出来
 
@@ -22,31 +25,15 @@ def file2data(filepath: str, k: int, word2idx: dict, max_len: int, mode: str):
     """
     DataTensor = []
     Labels = []
-    trim = mode == "train"
+    pldata = pl.read_parquet(filepath)
+    pbar = tqdm(list(pldata.iter_rows()))
+    for row in pbar:
+        label, kmer = int(row[0]), torch.as_tensor(row[1])
 
-    with open(filepath, "r") as handle:
-        records = list(SeqIO.parse(handle, "fasta"))
-
-    pbar = tqdm(records, desc=f"Processing {mode} data")
-    for rec in pbar:
-        seq, label_id = Read_Parser(rec)
-        kmer_tensor = DataProcess.seq2kmer(seq, k, word2idx, max_len, trim)
-        DataTensor.append(kmer_tensor)
-        Labels.append(label_id)
-
+        DataTensor.append(kmer)
+        Labels.append(label)
     return DataTensor, Labels
 
-
-def Read_Parser(record):
-    """将SeqIO.parse的返回的一个rec获取其序列和label
-
-    Args:
-        record : SeqIO.parse的返回的一个rec
-    """
-    seq = str(record.seq)
-    identifier = record.id
-    label_id = int(identifier.split("|")[1])
-    return seq, label_id
 
 
 class Dictionary:
@@ -69,6 +56,7 @@ class TrainSeqDataset(Dataset):
         )
         self.Data = torch.stack(self.Data)
         self.Label = torch.tensor(self.Label)
+        print("Dataset complete")
 
     def __len__(self):
         return len(self.Data)
@@ -127,11 +115,13 @@ class PredictSeqDataset(Dataset):
         """核心窗口处理函数"""
         end_pos = start_pos + self.sub_seq_len
         sub_seq = seq[start_pos:end_pos]
-        return DataProcess.seq2kmer(
-            seq=sub_seq,
-            k=self.k,
-            word2idx=self.all_dict.kmer2idx,
-            max_len=self.sub_seq_len - self.k + 1,
+        return torch.tensor(
+            DataProcess.seq2kmer(
+                seq=sub_seq,
+                k=self.k,
+                word2idx=self.all_dict.kmer2idx,
+                max_len=self.sub_seq_len - self.k + 1,
+            )
         )
 
     def __len__(self):
