@@ -1,16 +1,17 @@
 import model.Dataset as Dataset
 from utils import config, DataProcess
 import polars as pl
-
+from tqdm import tqdm
 if __name__ == "__main__":
     conf = config.load_config("./data/config.yaml")
     if conf is None:
         raise Exception("Error loading configuration")
     all_dict = Dataset.Dictionary(conf["KmerFilePath"], conf["TaxonFilePath"])
-    data = pl.read_parquet(conf["TrainDataPath"])
+    data = pl.read_parquet("E:\\GenomeData\\DMPdata\\all_concat_seq_data.parquet")
     print("parquet file loaded")
     data_list = []
-    for row in data.iter_rows():
+    pbar = tqdm(data.iter_rows(),"processing")
+    for row in pbar:
         label, seq = int(row[0]), str(row[1])
         kmer_list = DataProcess.seq2kmer(
             seq=seq,
