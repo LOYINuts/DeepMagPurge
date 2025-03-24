@@ -1,5 +1,5 @@
-from ..model import Dataset
-from . import config, DataProcess
+import model.Dataset as Dataset
+from utils import config, DataProcess
 import polars as pl
 
 if __name__ == "__main__":
@@ -7,8 +7,8 @@ if __name__ == "__main__":
     if conf is None:
         raise Exception("Error loading configuration")
     all_dict = Dataset.Dictionary(conf["KmerFilePath"], conf["TaxonFilePath"])
-    trim = True
     data = pl.read_parquet(conf["TrainDataPath"])
+    print("parquet file loaded")
     data_list = []
     for row in data.iter_rows():
         label, seq = int(row[0]), str(row[1])
@@ -20,5 +20,6 @@ if __name__ == "__main__":
             trim=True,
         )
         data_list.append([label, kmer_list])
+    print("seq2kmer complete")
     processed_data = pl.DataFrame(data_list, schema=["label", "kmer"], orient="row")
     processed_data.write_parquet(conf["TrainDataPath"])
