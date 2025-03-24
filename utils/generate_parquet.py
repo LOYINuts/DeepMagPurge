@@ -4,7 +4,7 @@ from Bio import SeqIO
 import polars as pl
 
 FILE_PATH = "/home/lys/gh/DBFiles/dmpdata/art_output/"
-OUTPUT_PATH = "/home/lys/gh/DBFiles/dmpdata/all_concat_seq_data.parquet"
+OUTPUT_PATH = "/home/lys/gh/DBFiles/dmpdata/all_concat_seq.parquet"
 
 def Read_Parser(record):
     """将 SeqIO.parse 的返回的一个 rec 获取其序列和 label
