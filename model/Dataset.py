@@ -7,18 +7,12 @@ import numpy as np
 import polars as pl
 
 
-def file2data(
-    filepath: str, k: int, word2idx: dict, max_len: int, mode: str
-) -> tuple[list[torch.Tensor], list[int]]:
+def file2data(filepath: str) -> tuple[list[torch.Tensor], list[int]]:
     """
     读取文件将数据提取出来
 
     Args:
         filepath (str): 要读取的文件路径
-        k (int): k-mer的长度
-        word2idx (dict): 单词到索引的映射字典
-        max_len (int): 序列的最大长度
-        mode (str): 处理模式，例如 "train" 或 "test"
 
     Returns:
         tuple: 包含数据张量列表和标签列表的元组
@@ -26,14 +20,12 @@ def file2data(
     DataTensor = []
     Labels = []
     pldata = pl.read_parquet(filepath)
-    pbar = tqdm(list(pldata.iter_rows()))
+    pbar = tqdm(pldata.iter_rows(),desc="Processing parquet", total=len(pldata))
     for row in pbar:
         label, kmer = int(row[0]), torch.as_tensor(row[1])
-
         DataTensor.append(kmer)
         Labels.append(label)
     return DataTensor, Labels
-
 
 
 class Dictionary:
@@ -51,9 +43,7 @@ class TrainSeqDataset(Dataset):
         k: int,
         mode: str,
     ):
-        self.Data, self.Label = file2data(
-            input_path, k, all_dict.kmer2idx, max_len, mode
-        )
+        self.Data, self.Label = file2data(input_path)
         self.Data = torch.stack(self.Data)
         self.Label = torch.tensor(self.Label)
         print("Dataset complete")
