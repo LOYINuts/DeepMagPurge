@@ -1,1 +1,0 @@
-/home/lys/gh/envs/bioenv/bin/python main.py --mode eval;
