@@ -3,19 +3,40 @@ from utils import config, DataProcess
 import polars as pl
 from tqdm import tqdm
 import os
+import logging
+
+
+def setup_logger(name: str, log_file: str, level=logging.INFO):
+    """设置日志记录器的函数。
+
+    :param name: 日志记录器的名称
+    :param log_file: 日志文件的路径
+    :param level: 日志记录的级别，默认为INFO
+    """
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    handler = logging.FileHandler(log_file)
+    handler.setFormatter(formatter)
+
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    logger.addHandler(handler)
+
+    return logger
+
 
 if __name__ == "__main__":
     conf = config.load_config("./data/config.yaml")
+    logger = setup_logger("mylogger", "logs/gen_data.log")
     if conf is None:
         raise Exception("Error loading configuration")
     if os.path.exists(conf["TrainDataPath"]) is False:
         os.makedirs(conf["TrainDataPath"])
     all_dict = Dataset.Dictionary(conf["KmerFilePath"], conf["TaxonFilePath"])
     data = pl.read_parquet(conf["TempParquet"])
-    data = data.sample(n=len(data),shuffle=True)
-    print("parquet file loaded")
+    data = data.sample(n=len(data), shuffle=True)
+    logger.info("parquet file loaded")
     # 分批次处理数据
-    batch_size = 2048*100  # 可根据实际情况调整批次大小
+    batch_size = 2048 * 100  # 可根据实际情况调整批次大小
     num_batches = len(data) // batch_size + (1 if len(data) % batch_size != 0 else 0)
 
     for batch_idx in tqdm(range(num_batches), "Processing batches"):
@@ -38,6 +59,9 @@ if __name__ == "__main__":
         processed_batch = pl.DataFrame(
             data_list, schema=["label", "kmer"], orient="row"
         )
-        file_path = os.path.join(conf["TrainDataPath"],f"train_data_{batch_idx}.parquet")
+        file_path = os.path.join(
+            conf["TrainDataPath"], f"train_data_{batch_idx}.parquet"
+        )
         processed_batch.write_parquet(file_path)
-    print("Processing complete")
+        logger.info(f"train_data_{batch_idx}.parquet complete")
+    logger.info("Processing complete")
