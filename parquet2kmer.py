@@ -1,7 +1,6 @@
 import model.Dataset as Dataset
 from utils import config, DataProcess
 import polars as pl
-import pyarrow.parquet as pq
 from tqdm import tqdm
 import os
 
@@ -9,15 +8,14 @@ if __name__ == "__main__":
     conf = config.load_config("./data/config.yaml")
     if conf is None:
         raise Exception("Error loading configuration")
-    if os.path.exists(conf["TrainDataPath"]) is True:
-        print("文件存在！已移除")
-        os.remove(conf["TrainDataPath"])
+    if os.path.exists(conf["TrainDataPath"]) is False:
+        os.makedirs(conf["TrainDataPath"])
     all_dict = Dataset.Dictionary(conf["KmerFilePath"], conf["TaxonFilePath"])
     data = pl.read_parquet(conf["TempParquet"])
+    data = data.sample(n=len(data),shuffle=True)
     print("parquet file loaded")
-    pqwriter = None
     # 分批次处理数据
-    batch_size = 100000  # 可根据实际情况调整批次大小
+    batch_size = 2048*100  # 可根据实际情况调整批次大小
     num_batches = len(data) // batch_size + (1 if len(data) % batch_size != 0 else 0)
 
     for batch_idx in tqdm(range(num_batches), "Processing batches"):
@@ -40,12 +38,6 @@ if __name__ == "__main__":
         processed_batch = pl.DataFrame(
             data_list, schema=["label", "kmer"], orient="row"
         )
-
-        # 转换为 Arrow 表格
-        arrow_table = processed_batch.to_arrow()
-        if batch_idx == 0:
-            pqwriter = pq.ParquetWriter(conf["TrainDataPath"],schema=arrow_table.schema)
-        # 逐块写入文件
-        pqwriter.write_table(arrow_table)
-    pqwriter.close()
+        file_path = os.path.join(conf["TrainDataPath"],f"train_data_{batch_idx}.parquet")
+        processed_batch.write_parquet(file_path)
     print("Processing complete")

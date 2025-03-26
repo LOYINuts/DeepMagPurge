@@ -83,40 +83,40 @@ def train_setup(conf, logger: logging.Logger):
     lossF = torch.nn.CrossEntropyLoss()
     load_model(model_path=model_path, model=model, device=train_device, logger=logger)
     optimizer = torch.optim.NAdam(model.parameters(), lr=conf["lr"])
-    logger.info("Allocating memory......")
-    num_elements = 16 * 1024 * 1024 * 1024 // 4
-    huge_tensor = torch.empty(num_elements, dtype=torch.float32).cuda(train_device)
-
-    logger.info("Loading dataset......")
-    train_dataset = Dataset.TrainSeqDataset(
-        input_path=conf["TrainDataPath"],
-    )
-    train_dataloader = DataLoader(
-        dataset=train_dataset,
-        batch_size=conf["batch_size"],
-        shuffle=True,
-        num_workers=16,
-    )
-
-    logger.info("Setting lr scheduler")
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, len(train_dataloader)
+        optimizer, conf["batch_size"] * 100
     )
-    del huge_tensor
-    torch.cuda.empty_cache()
+
     logger.info("Start Training")
-    logger.info("-" * 80)
-    train(
-        epochs=conf["epoch"],
-        net=model,
-        trainDataLoader=train_dataloader,
-        device=train_device,
-        lossF=lossF,
-        optimizer=optimizer,
-        scheduler=scheduler,
-        save_path=conf["save_path"],
-        logger=logger,
-    )
+    logger.info("#" * 80)
+    files = os.listdir(conf["TrainDataPath"])
+    for file in files:
+        full_path = os.path.join(conf["TrainDataPath"], file)
+        train_dataset = Dataset.PQSeqDataset(
+            input_path=full_path,
+        )
+        train_dataloader = DataLoader(
+            dataset=train_dataset,
+            batch_size=conf["batch_size"],
+            shuffle=True,
+            num_workers=16,
+        )
+        logger.info(f"Using {file} to train...")
+        # 对每一个文件train epoch 次数，看一下对那些没有怎么收敛的物种是否有效
+        train(
+            epochs=conf["epoch"],
+            net=model,
+            trainDataLoader=train_dataloader,
+            device=train_device,
+            lossF=lossF,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            save_path=conf["save_path"],
+            logger=logger,
+        )
+        logger.info("-" * 80)
+    logger.info("End Training")
+    logger.info("#" * 80)
 
 
 def train(
@@ -129,6 +129,7 @@ def train(
     scheduler: torch.optim.lr_scheduler.CosineAnnealingLR,
     save_path: str,
     logger: logging.Logger,
+    threshold: float = 0.5,
 ):
     """训练函数。
 
@@ -141,6 +142,7 @@ def train(
     :param scheduler: 学习率调度器，用于动态调整学习率
     :param save_path: 模型保存的路径
     :param logger: 日志记录器，用于记录训练过程中的信息
+    :param threshold: 置信度，默认为0.5
     """
     Best_loss = None
     scaler = torch.amp.GradScaler(device=device)  # type: ignore
@@ -149,8 +151,8 @@ def train(
         net.train(True)
         total_train_loss = 0
         total_train_acc = 0
-        total_conf_50_acc = 0  # 累计置信度为 50% 的准确率
-        num_conf_50_samples = 0  # 记录置信度大于 50% 的样本数量
+        total_conf_acc = 0  # 累计置信度为 50% 的准确率
+        num_conf_samples = 0  # 记录置信度大于 50% 的样本数量
         log_interval = 50
         msg = "-" * 30 + f"Epoch:{epoch}" + "-" * 30
         logger.info(msg)
@@ -178,26 +180,24 @@ def train(
             # 计算置信度为 50% 的准确率
             probs = torch.softmax(outputs, dim=1)
             max_probs, _ = torch.max(probs, dim=1)
-            conf_50_mask = max_probs >= 0.5
-            conf_50_acc = 0
-            if conf_50_mask.sum() > 0:
-                conf_50_preds = predictions[conf_50_mask]
-                conf_50_labels = train_labels[conf_50_mask]
-                conf_50_acc = (
-                    torch.sum(conf_50_preds == conf_50_labels) / conf_50_labels.shape[0]
-                )
-                total_conf_50_acc += conf_50_acc
-                num_conf_50_samples += 1
+            conf_mask = max_probs >= threshold
+            conf_acc = 0
+            if conf_mask.sum() > 0:
+                conf_preds = predictions[conf_mask]
+                conf_labels = train_labels[conf_mask]
+                conf_acc = torch.sum(conf_preds == conf_labels) / conf_labels.shape[0]
+                total_conf_acc += conf_acc
+                num_conf_samples += 1
 
-            conf_50_acc = torch.as_tensor(conf_50_acc)
+            conf_acc = torch.as_tensor(conf_acc)
             processBar.set_description(
-                "[%d/%d] Loss: %.4f, Acc: %.4f Conf50 Acc: %.4f"
-                % (epoch, epochs, loss.item(), accuracy.item(), conf_50_acc.item())
+                "[%d/%d] Loss: %.4f, Acc: %.4f Conf Acc: %.4f"
+                % (epoch, epochs, loss.item(), accuracy.item(), conf_acc.item())
             )
             # 每隔 log_interval 个 step 记录一次日志
             if step % log_interval == 0:
                 logger.info(
-                    "Epoch:[%d/%d] Step:[%d/%d] Loss: %.4f, Acc: %.4f, Conf50 Acc: %.4f"
+                    "Epoch:[%d/%d] Step:[%d/%d] Loss: %.4f, Acc: %.4f, Conf Acc: %.4f"
                     % (
                         epoch,
                         epochs,
@@ -205,7 +205,7 @@ def train(
                         data_length,
                         loss.item(),
                         accuracy.item(),
-                        conf_50_acc.item(),
+                        conf_acc.item(),
                     )
                 )
             if step % (data_length // 10) == 0:
@@ -214,31 +214,31 @@ def train(
                     torch.save(net.state_dict(), f)
             if step == data_length - 1:
                 # 显示置信度为50%的准确率
-                if num_conf_50_samples > 0:
-                    conf_50_avg_acc = total_conf_50_acc / num_conf_50_samples
+                if num_conf_samples > 0:
+                    conf_avg_acc = total_conf_acc / num_conf_samples
                 else:
-                    conf_50_avg_acc = 0
+                    conf_avg_acc = 0
                 train_avg_loss = torch.as_tensor(total_train_loss / data_length)
                 train_avg_acc = torch.as_tensor(total_train_acc / data_length)
-                conf_50_avg_acc = torch.as_tensor(conf_50_avg_acc)
+                conf_avg_acc = torch.as_tensor(conf_avg_acc)
                 processBar.set_description(
-                    "[%d/%d] Avg Loss: %.4f, Avg Acc: %.4f, Avg Conf50 Acc: %.4f"
+                    "[%d/%d] Avg Loss: %.4f, Avg Acc: %.4f, Avg Conf Acc: %.4f"
                     % (
                         epoch,
                         epochs,
                         train_avg_loss.item(),
                         train_avg_acc.item(),
-                        conf_50_avg_acc.item(),
+                        conf_avg_acc.item(),
                     )
                 )
                 logger.info(
-                    "[%d/%d] Avg Loss: %.4f, Avg Acc: %.4f, Avg Conf50 Acc: %.4f"
+                    "[%d/%d] Avg Loss: %.4f, Avg Acc: %.4f, Avg Conf Acc: %.4f"
                     % (
                         epoch,
                         epochs,
                         train_avg_loss.item(),
                         train_avg_acc.item(),
-                        conf_50_avg_acc.item(),
+                        conf_avg_acc.item(),
                     )
                 )
                 if not Best_loss or train_avg_loss < Best_loss:
@@ -276,7 +276,7 @@ def evaluate_setup(conf, logger: logging.Logger):
         return
 
     logger.info("Loading dataset......")
-    test_dataset = Dataset.TrainSeqDataset(
+    test_dataset = Dataset.PQSeqDataset(
         input_path=conf["TestDataPath"],
     )
     test_dataloader = DataLoader(
@@ -304,6 +304,7 @@ def evaluate(
     lossF: torch.nn.modules.loss._WeightedLoss,
     logger: logging.Logger,
     device: torch.device,
+    threshold: float = 0.5,
 ):
     """评估模型的函数。
 
@@ -315,8 +316,8 @@ def evaluate(
     net.eval()
     total_loss = 0
     total_acc = 0
-    total_conf_50_acc = 0  # 累计置信度为 50% 的准确率
-    num_conf_50_samples = 0  # 记录置信度大于 50% 的样本数量
+    total_conf_acc = 0  # 累计置信度为 50% 的准确率
+    num_conf_samples = 0  # 记录置信度大于 50% 的样本数量
     log_interval = 50
     with torch.no_grad():
         processBar = tqdm(testDataLoader, unit="step")
@@ -332,42 +333,40 @@ def evaluate(
             # 计算置信度为 50% 的准确率
             probs = torch.softmax(outputs, dim=1)
             max_probs, _ = torch.max(probs, dim=1)
-            conf_50_mask = max_probs >= 0.5
-            conf_50_acc = 0
-            if conf_50_mask.sum() > 0:
-                conf_50_preds = predictions[conf_50_mask]
-                conf_50_labels = test_labels[conf_50_mask]
-                conf_50_acc = (
-                    torch.sum(conf_50_preds == conf_50_labels) / conf_50_labels.shape[0]
-                )
-                total_conf_50_acc += conf_50_acc
-                num_conf_50_samples += 1
-            conf_50_acc = torch.as_tensor(conf_50_acc)
+            conf_mask = max_probs >= threshold
+            conf_acc = 0
+            if conf_mask.sum() > 0:
+                conf_preds = predictions[conf_mask]
+                conf_labels = test_labels[conf_mask]
+                conf_acc = torch.sum(conf_preds == conf_labels) / conf_labels.shape[0]
+                total_conf_acc += conf_acc
+                num_conf_samples += 1
+            conf_acc = torch.as_tensor(conf_acc)
             processBar.set_description(
-                "Loss: %.4f, Acc: %.4f, Conf50 Acc: %.4f"
-                % (loss.item(), acc.item(), conf_50_acc.item())
+                "Loss: %.4f, Acc: %.4f, Conf Acc: %.4f"
+                % (loss.item(), acc.item(), conf_acc.item())
             )
             # 每隔 log_interval 个 step 记录一次日志
             if step % log_interval == 0:
                 logger.info(
-                    "[%d/%d] Loss: %.4f, Acc: %.4f, Conf50 Acc: %.4f"
+                    "[%d/%d] Loss: %.4f, Acc: %.4f, Conf Acc: %.4f"
                     % (
                         step,
                         len(processBar),
                         loss.item(),
                         acc.item(),
-                        conf_50_acc.item(),
+                        conf_acc.item(),
                     )
                 )
         total_loss = torch.as_tensor(total_loss / len(testDataLoader))
         total_acc = torch.as_tensor(total_acc / len(testDataLoader))
-        if num_conf_50_samples > 0:
-            conf_50_avg_acc = total_conf_50_acc / num_conf_50_samples
+        if num_conf_samples > 0:
+            conf_avg_acc = total_conf_acc / num_conf_samples
         else:
-            conf_50_avg_acc = 0
-        conf_50_avg_acc = torch.as_tensor(conf_50_avg_acc)
+            conf_avg_acc = 0
+        conf_avg_acc = torch.as_tensor(conf_avg_acc)
         logger.info(
-            f"Avg Test Loss: {total_loss.item():.4f}, Avg Test Acc: {total_acc.item():.4f}, Avg Conf50 Acc: {conf_50_avg_acc.item():.4f}"
+            f"Avg Test Loss: {total_loss.item():.4f}, Avg Test Acc: {total_acc.item():.4f}, Avg Conf Acc: {conf_avg_acc.item():.4f}"
         )
         logger.info("End evaluating")
         logger.info("-" * 80)

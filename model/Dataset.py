@@ -34,7 +34,7 @@ class Dictionary:
         self.taxon2idx = DataProcess.TransferTaxon2Idx(taxon_file_path)
 
 
-class TrainSeqDataset(Dataset):
+class PQSeqDataset(Dataset):
     def __init__(
         self,
         input_path: str,
