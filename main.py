@@ -1,5 +1,5 @@
 import torch.optim.nadam
-from utils import config,benchmark
+from utils import config, benchmark
 from tqdm import tqdm
 import torch
 import os
@@ -83,20 +83,13 @@ def train_setup(conf, logger: logging.Logger):
     lossF = torch.nn.CrossEntropyLoss()
     load_model(model_path=model_path, model=model, device=train_device, logger=logger)
     optimizer = torch.optim.NAdam(model.parameters(), lr=conf["lr"])
-
-    logger.info("Loading Dict Files......")
-    all_dict = Dataset.Dictionary(conf["KmerFilePath"], conf["TaxonFilePath"])
     logger.info("Allocating memory......")
     num_elements = 16 * 1024 * 1024 * 1024 // 4
     huge_tensor = torch.empty(num_elements, dtype=torch.float32).cuda(train_device)
 
     logger.info("Loading dataset......")
     train_dataset = Dataset.TrainSeqDataset(
-        max_len=conf["max_len"],
         input_path=conf["TrainDataPath"],
-        all_dict=all_dict,
-        k=conf["kmer"],
-        mode="train",
     )
     train_dataloader = DataLoader(
         dataset=train_dataset,
@@ -282,16 +275,9 @@ def evaluate_setup(conf, logger: logging.Logger):
         logger.info("You can't run eval mode without an existing model!")
         return
 
-    logger.info("Loading Dict Files......")
-    all_dict = Dataset.Dictionary(conf["KmerFilePath"], conf["TaxonFilePath"])
-
     logger.info("Loading dataset......")
     test_dataset = Dataset.TrainSeqDataset(
-        max_len=conf["max_len"],
         input_path=conf["TestDataPath"],
-        all_dict=all_dict,
-        k=conf["kmer"],
-        mode="eval",
     )
     test_dataloader = DataLoader(
         dataset=test_dataset,

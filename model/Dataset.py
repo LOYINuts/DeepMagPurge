@@ -37,11 +37,7 @@ class Dictionary:
 class TrainSeqDataset(Dataset):
     def __init__(
         self,
-        max_len: int,
         input_path: str,
-        all_dict: Dictionary,
-        k: int,
-        mode: str,
     ):
         self.Data, self.Label = file2data(input_path)
         self.Data = torch.stack(self.Data)
