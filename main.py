@@ -9,6 +9,7 @@ from model import TaxonClassifier, Dataset
 import logging
 from Bio import SeqIO
 import numpy as np
+import random
 
 
 def setup_model(conf, device):
@@ -80,7 +81,10 @@ def train_setup(conf, logger: logging.Logger):
     model_path = os.path.join(conf["save_path"], "checkpoint.pt")
     train_device = torch.device(conf["device"])
     model = setup_model(conf=conf, device=train_device)
+    # 打乱文件顺序
     files = os.listdir(conf["TrainDataPath"])
+    random.shuffle(files)
+
     lossF = torch.nn.CrossEntropyLoss()
     load_model(model_path=model_path, model=model, device=train_device, logger=logger)
     optimizer = torch.optim.NAdam(model.parameters(), lr=conf["lr"])
@@ -243,9 +247,6 @@ def train(
             torch.save(net.state_dict(), f)
 
         processBar.close()
-    # 结束添加分割线
-    logger.info("Training Finished")
-    logger.info("-" * 80)
 
 
 def evaluate_setup(conf, logger: logging.Logger):
