@@ -42,7 +42,6 @@ class PQSeqDataset(Dataset):
         self.Data, self.Label = file2data(input_path)
         self.Data = torch.stack(self.Data)
         self.Label = torch.tensor(self.Label)
-        print("Dataset complete")
 
     def __len__(self):
         return len(self.Data)
