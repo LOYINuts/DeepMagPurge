@@ -150,15 +150,14 @@ def train(
     """
     scaler = torch.amp.GradScaler(device=device)  # type: ignore
     for epoch in range(1, epochs + 1):
-        processBar = tqdm(trainDataLoader, unit="step")
         net.train(True)
         total_train_loss = 0
         total_train_acc = 0
         total_conf_acc = 0  # 累计置信度为 50% 的准确率
         num_conf_samples = 0  # 记录置信度大于 50% 的样本数量
         log_interval = 50
-        data_length = len(processBar)
-        for step, (train_seq, train_labels) in enumerate(processBar):
+        data_length = len(trainDataLoader)
+        for step, (train_seq, train_labels) in enumerate(trainDataLoader):
             train_seq = train_seq.to(device)
             train_labels = train_labels.to(device)
             optimizer.zero_grad()
@@ -191,10 +190,6 @@ def train(
                 num_conf_samples += 1
 
             conf_acc = torch.as_tensor(conf_acc)
-            processBar.set_description(
-                "[%d/%d] Loss: %.4f, Acc: %.4f Conf Acc: %.4f"
-                % (epoch, epochs, loss.item(), accuracy.item(), conf_acc.item())
-            )
             # 每隔 log_interval 个 step 记录一次日志
             if step % log_interval == 0:
                 logger.info(
@@ -222,16 +217,6 @@ def train(
                 train_avg_loss = torch.as_tensor(total_train_loss / data_length)
                 train_avg_acc = torch.as_tensor(total_train_acc / data_length)
                 conf_avg_acc = torch.as_tensor(conf_avg_acc)
-                processBar.set_description(
-                    "[%d/%d] Avg Loss: %.4f, Avg Acc: %.4f, Avg Conf Acc: %.4f"
-                    % (
-                        epoch,
-                        epochs,
-                        train_avg_loss.item(),
-                        train_avg_acc.item(),
-                        conf_avg_acc.item(),
-                    )
-                )
                 logger.info(
                     "[%d/%d] Avg Loss: %.4f, Avg Acc: %.4f, Avg Conf Acc: %.4f"
                     % (
@@ -245,8 +230,6 @@ def train(
         model_save_path = os.path.join(save_path, "checkpoint.pt")
         with open(model_save_path, "wb") as f:
             torch.save(net.state_dict(), f)
-
-        processBar.close()
 
 
 def evaluate_setup(conf, logger: logging.Logger):
