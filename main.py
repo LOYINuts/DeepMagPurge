@@ -80,41 +80,41 @@ def train_setup(conf, logger: logging.Logger):
     model_path = os.path.join(conf["save_path"], "checkpoint.pt")
     train_device = torch.device(conf["device"])
     model = setup_model(conf=conf, device=train_device)
+    files = os.listdir(conf["TrainDataPath"])
     lossF = torch.nn.CrossEntropyLoss()
     load_model(model_path=model_path, model=model, device=train_device, logger=logger)
     optimizer = torch.optim.NAdam(model.parameters(), lr=conf["lr"])
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, conf["batch_size"] * 100
-    )
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(files) * 100)
 
     logger.info("Start Training")
     logger.info("#" * 80)
-    files = os.listdir(conf["TrainDataPath"])
-    for file in files:
-        full_path = os.path.join(conf["TrainDataPath"], file)
-        train_dataset = Dataset.PQSeqDataset(
-            input_path=full_path,
-        )
-        train_dataloader = DataLoader(
-            dataset=train_dataset,
-            batch_size=conf["batch_size"],
-            shuffle=True,
-            num_workers=16,
-        )
-        logger.info(f"Using {file} to train...")
-        # 对每一个文件train epoch 次数，看一下对那些没有怎么收敛的物种是否有效
-        train(
-            epochs=conf["epoch"],
-            net=model,
-            trainDataLoader=train_dataloader,
-            device=train_device,
-            lossF=lossF,
-            optimizer=optimizer,
-            scheduler=scheduler,
-            save_path=conf["save_path"],
-            logger=logger,
-        )
-        logger.info("-" * 80)
+
+    for epoch in range(conf["epoch"]):
+        logger.info(msg="-" * 30 + f"EPOCH {epoch}" + "-" * 30)
+        for file in files:
+            full_path = os.path.join(conf["TrainDataPath"], file)
+            train_dataset = Dataset.PQSeqDataset(
+                input_path=full_path,
+            )
+            train_dataloader = DataLoader(
+                dataset=train_dataset,
+                batch_size=conf["batch_size"],
+                shuffle=True,
+                num_workers=16,
+            )
+            logger.info(f"Using {file} to train...")
+            train(
+                epochs=1,
+                net=model,
+                trainDataLoader=train_dataloader,
+                device=train_device,
+                lossF=lossF,
+                optimizer=optimizer,
+                scheduler=scheduler,
+                save_path=conf["save_path"],
+                logger=logger,
+            )
+            logger.info("-" * 80)
     logger.info("End Training")
     logger.info("#" * 80)
 
@@ -144,7 +144,6 @@ def train(
     :param logger: 日志记录器，用于记录训练过程中的信息
     :param threshold: 置信度，默认为0.5
     """
-    Best_loss = None
     scaler = torch.amp.GradScaler(device=device)  # type: ignore
     for epoch in range(1, epochs + 1):
         processBar = tqdm(trainDataLoader, unit="step")
@@ -154,8 +153,6 @@ def train(
         total_conf_acc = 0  # 累计置信度为 50% 的准确率
         num_conf_samples = 0  # 记录置信度大于 50% 的样本数量
         log_interval = 50
-        msg = "-" * 30 + f"Epoch:{epoch}" + "-" * 30
-        logger.info(msg)
         data_length = len(processBar)
         for step, (train_seq, train_labels) in enumerate(processBar):
             train_seq = train_seq.to(device)
@@ -241,11 +238,9 @@ def train(
                         conf_avg_acc.item(),
                     )
                 )
-                if not Best_loss or train_avg_loss < Best_loss:
-                    Best_loss = train_avg_loss
-                    model_save_path = os.path.join(save_path, "checkpoint.pt")
-                    with open(model_save_path, "wb") as f:
-                        torch.save(net.state_dict(), f)
+        model_save_path = os.path.join(save_path, "checkpoint.pt")
+        with open(model_save_path, "wb") as f:
+            torch.save(net.state_dict(), f)
 
         processBar.close()
     # 结束添加分割线
