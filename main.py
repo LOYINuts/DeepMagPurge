@@ -1,6 +1,5 @@
 import torch.optim.nadam
 from utils import config, benchmark
-from tqdm import tqdm
 import torch
 import os
 import argparse
@@ -74,35 +73,32 @@ def train_setup(conf, logger: logging.Logger):
     :param conf: 配置信息对象
     :param logger: 日志记录器，用于记录准备过程中的信息
     """
-    logger.info("Parsed YAML configuration:")
-    for key, value in conf.items():
-        logger.info(f"{key}: {value}")
 
-    model_path = os.path.join(conf["save_path"], "checkpoint.pt")
-    train_device = torch.device(conf["device"])
+    model_path = os.path.join(conf["filepath"]["save_path"], "checkpoint.pt")
+    train_device = torch.device(conf["model"]["train_device"])
     model = setup_model(conf=conf, device=train_device)
     # 打乱文件顺序
-    files = os.listdir(conf["TrainDataPath"])
+    files = os.listdir(conf["filepath"]["TrainDataPath"])
     random.shuffle(files)
 
     lossF = torch.nn.CrossEntropyLoss()
     load_model(model_path=model_path, model=model, device=train_device, logger=logger)
-    optimizer = torch.optim.NAdam(model.parameters(), lr=conf["lr"])
+    optimizer = torch.optim.NAdam(model.parameters(), lr=conf["model"]["lr"])
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(files) * 100)
 
     logger.info("Start Training")
     logger.info("#" * 80)
 
-    for epoch in range(conf["epoch"]):
+    for epoch in range(conf["model"]["epoch"]):
         logger.info(msg="-" * 30 + f"EPOCH {epoch}" + "-" * 30)
         for file in files:
-            full_path = os.path.join(conf["TrainDataPath"], file)
+            full_path = os.path.join(conf["filepath"]["TrainDataPath"], file)
             train_dataset = Dataset.PQSeqDataset(
                 input_path=full_path,
             )
             train_dataloader = DataLoader(
                 dataset=train_dataset,
-                batch_size=conf["batch_size"],
+                batch_size=conf["model"]["batch_size"],
                 shuffle=True,
                 num_workers=16,
             )
@@ -115,7 +111,7 @@ def train_setup(conf, logger: logging.Logger):
                 lossF=lossF,
                 optimizer=optimizer,
                 scheduler=scheduler,
-                save_path=conf["save_path"],
+                save_path=conf["filepath"]["save_path"],
                 logger=logger,
             )
             logger.info("-" * 80)
@@ -231,126 +227,6 @@ def train(
         with open(model_save_path, "wb") as f:
             torch.save(net.state_dict(), f)
 
-
-def evaluate_setup(conf, logger: logging.Logger):
-    """评估前的准备工作，如加载测试数据等。
-
-    :param conf: 配置信息对象
-    :param logger: 日志记录器，用于记录准备过程中的信息
-    """
-    logger.info("Parsed YAML configuration:")
-    for key, value in conf.items():
-        logger.info(f"{key}: {value}")
-
-    eval_device = torch.device(conf["eval_device"])
-    torch.set_num_threads(conf["num_workers"])
-    model_path = os.path.join(conf["save_path"], "checkpoint.pt")
-    model = setup_model(conf, eval_device)
-    lossF = torch.nn.CrossEntropyLoss()
-    loaded = load_model(
-        model_path=model_path, model=model, device=eval_device, logger=logger
-    )
-    if not loaded:
-        logger.info("You can't run eval mode without an existing model!")
-        return
-
-    logger.info("Loading dataset......")
-    test_dataset = Dataset.PQSeqDataset(
-        input_path=conf["TestDataPath"],
-    )
-    test_dataloader = DataLoader(
-        dataset=test_dataset,
-        batch_size=conf["batch_size"],
-        shuffle=False,
-        num_workers=16,
-        pin_memory=False,
-        persistent_workers=True,  # 保持worker进程存活
-    )
-    logger.info("Start evaluating......")
-    logger.info("-" * 80)
-    evaluate(
-        net=model,
-        testDataLoader=test_dataloader,
-        lossF=lossF,
-        logger=logger,
-        device=eval_device,
-    )
-
-
-def evaluate(
-    net: torch.nn.Module,
-    testDataLoader: DataLoader,
-    lossF: torch.nn.modules.loss._WeightedLoss,
-    logger: logging.Logger,
-    device: torch.device,
-    threshold: float = 0.5,
-):
-    """评估模型的函数。
-
-    :param net: 要评估的模型实例
-    :param testDataLoader: 测试数据加载器，用于批量加载测试数据
-    :param lossF: 损失函数，用于计算模型预测结果与真实标签之间的损失
-    :param logger: 日志记录器，用于记录评估过程中的信息
-    """
-    net.eval()
-    total_loss = 0
-    total_acc = 0
-    total_conf_acc = 0  # 累计置信度为 50% 的准确率
-    num_conf_samples = 0  # 记录置信度大于 50% 的样本数量
-    log_interval = 50
-    with torch.no_grad():
-        processBar = tqdm(testDataLoader, unit="step")
-        for step, (test_seq, test_labels) in enumerate(processBar):
-            test_seq = test_seq.to(device)
-            test_labels = test_labels.to(device)
-            outputs = net(test_seq)
-            predictions = torch.argmax(outputs, dim=1)
-            acc = torch.sum(predictions == test_labels) / test_labels.shape[0]
-            loss = lossF(outputs, test_labels)
-            total_loss += loss
-            total_acc += acc
-            # 计算置信度为 50% 的准确率
-            probs = torch.softmax(outputs, dim=1)
-            max_probs, _ = torch.max(probs, dim=1)
-            conf_mask = max_probs >= threshold
-            conf_acc = 0
-            if conf_mask.sum() > 0:
-                conf_preds = predictions[conf_mask]
-                conf_labels = test_labels[conf_mask]
-                conf_acc = torch.sum(conf_preds == conf_labels) / conf_labels.shape[0]
-                total_conf_acc += conf_acc
-                num_conf_samples += 1
-            conf_acc = torch.as_tensor(conf_acc)
-            processBar.set_description(
-                "Loss: %.4f, Acc: %.4f, Conf Acc: %.4f"
-                % (loss.item(), acc.item(), conf_acc.item())
-            )
-            # 每隔 log_interval 个 step 记录一次日志
-            if step % log_interval == 0:
-                logger.info(
-                    "[%d/%d] Loss: %.4f, Acc: %.4f, Conf Acc: %.4f"
-                    % (
-                        step,
-                        len(processBar),
-                        loss.item(),
-                        acc.item(),
-                        conf_acc.item(),
-                    )
-                )
-        total_loss = torch.as_tensor(total_loss / len(testDataLoader))
-        total_acc = torch.as_tensor(total_acc / len(testDataLoader))
-        if num_conf_samples > 0:
-            conf_avg_acc = total_conf_acc / num_conf_samples
-        else:
-            conf_avg_acc = 0
-        conf_avg_acc = torch.as_tensor(conf_avg_acc)
-        logger.info(
-            f"Avg Test Loss: {total_loss.item():.4f}, Avg Test Acc: {total_acc.item():.4f}, Avg Conf Acc: {conf_avg_acc.item():.4f}"
-        )
-        logger.info("End evaluating")
-        logger.info("-" * 80)
-
-
 def predict_one_record(
     model: torch.nn.Module,
     seq_data: DataLoader,
@@ -435,7 +311,7 @@ def main():
         "--mode",
         type=str,
         default="train",
-        help="mode to run DeepMAGPurge,choose train, eval or predict",
+        help="mode to run DeepMAGPurge,choose train, predict and benchmark",
     )
     args = parser.parse_args()
 
@@ -446,9 +322,6 @@ def main():
     if run_mode == "train":
         train_logger = setup_logger("train_logger", "logs/train.log")
         train_setup(conf=conf, logger=train_logger)
-    elif run_mode == "eval":
-        eval_logger = setup_logger("eval_logger", "logs/eval.log")
-        evaluate_setup(conf=conf, logger=eval_logger)
     elif run_mode == "predict":
         predict_logger = setup_logger("predict_logger", "logs/predict.log")
         predict_files(conf=conf, logger=predict_logger)
