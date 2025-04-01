@@ -162,7 +162,6 @@ def train(
     :param lossF: 损失函数，用于计算模型预测结果与真实标签之间的损失
     :param optimizer: 优化器，用于更新模型的参数
     :param scheduler: 学习率调度器，用于动态调整学习率
-    :param save_path: 模型保存的路径
     :param logger: 日志记录器，用于记录训练过程中的信息
     :param threshold: 置信度，默认为0.5
     """
