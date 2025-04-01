@@ -326,7 +326,7 @@ def predict_files(conf, logger: logging.Logger):
     model_path = os.path.join(conf["filepath"]["save_path"], "checkpoint.pt")
     device = torch.device(conf["model"]["eval_device"])
     logger.info("setup model......")
-    model = setup_model(conf, device)
+    model = setup_model(conf["model"], device)
     logger.info("loading dict files......")
     all_dict = Dataset.Dictionary(
         conf["filepath"]["KmerFilePath"], conf["filepath"]["TaxonFilePath"]
