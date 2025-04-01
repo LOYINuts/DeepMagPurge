@@ -9,12 +9,20 @@ import logging
 from Bio import SeqIO
 import numpy as np
 import random
+import polars as pl
 
 
 class PredOutput:
-    def __init__(self, taxon: int = -1, confidence: bool = False, top3taxon: list = []):
+    def __init__(
+        self,
+        taxon: int = -1,
+        confidence: bool = False,
+        threshold: float = 0.5,
+        top3taxon: list = [],
+    ):
         self.Taxon = taxon
         self.Confidence = confidence
+        self.Threshold = threshold
         self.Top3Taxon = top3taxon
 
 
@@ -265,6 +273,7 @@ def predict_one_record(
     return PredOutput(
         taxon=int(max_prob_idx),
         confidence=(max_prob >= threshold),
+        threshold=threshold,
         top3taxon=[
             {"taxon": int(idx), "prob": float(prob)}
             for idx, prob in zip(top3_indices, top3_probs)
@@ -279,7 +288,12 @@ def predict_one_file(
     all_dict: Dataset.Dictionary,
     device: torch.device,
 ):
-    with open(file, "r") as handle:
+    outputs = []
+    file_path = os.path.join(conf["filepath"]["PredictFilePath"], file)
+    output_path = os.path.join(
+        conf["filepath"]["OutputPath"], file.split(".")[0], ".csv"
+    )
+    with open(file_path, "r") as handle:
         for rec in SeqIO.parse(handle, "fasta"):
             rec_dataset = Dataset.PredictSeqDataset(
                 k=conf["model"]["kmer"],
@@ -287,21 +301,44 @@ def predict_one_file(
                 record=rec,
             )
             rec_dataloader = DataLoader(rec_dataset, batch_size=128, shuffle=False)
-            pred = predict_one_record(model=model,seq_dataloader=rec_dataloader,device=device)
-
+            pred = predict_one_record(
+                model=model, seq_dataloader=rec_dataloader, device=device
+            )
+            top3 = pred.Top3Taxon
+            row = {
+                "Taxon": pred.Taxon,
+                "Confidence": pred.Confidence,
+                "Threshold": pred.Threshold,
+                "Top1_Taxon": top3[0]["taxon"],
+                "Top1_Prob": top3[0]["prob"],
+                "Top2_Taxon": top3[1]["taxon"],
+                "Top2_Prob": top3[1]["prob"],
+                "Top3_Taxon": top3[2]["taxon"],
+                "Top3_Prob": top3[2]["prob"],
+            }
+            outputs.append(row)
+    df = pl.DataFrame(outputs)
+    df.write_csv(output_path)
 
 
 def predict_files(conf, logger: logging.Logger):
     model_path = os.path.join(conf["filepath"]["save_path"], "checkpoint.pt")
     device = torch.device(conf["model"]["eval_device"])
+    logger.info("setup model......")
     model = setup_model(conf, device)
+    logger.info("loading dict files......")
     all_dict = Dataset.Dictionary(
         conf["filepath"]["KmerFilePath"], conf["filepath"]["TaxonFilePath"]
     )
     ok = load_model(model_path=model_path, model=model, device=device, logger=logger)
     if ok is False:
-        logger.info("Can't run predict due to there is no existing model!")
         raise Exception("Can't run predict due to there is no existing model!")
+    files = os.listdir(conf["filepath"]["PredictFilePath"])
+    for file in files:
+        predict_one_file(
+            model=model, file=file, conf=conf, all_dict=all_dict, device=device
+        )
+        logger.info(f"predict {file} complete.")
 
 
 def main():

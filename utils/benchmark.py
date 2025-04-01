@@ -105,21 +105,21 @@ def benchmark_main():
     logger.setLevel(logging.INFO)
     logger.addHandler(handler)
 
-    conf = config.load_config("./data/config.yaml")
+    conf = config.load_config("./data/config.toml")
     if conf is None:
-        raise Exception("Load yaml configuration error!")
+        raise Exception("Load toml configuration error!")
 
-    model_path = os.path.join(conf["save_path"], "checkpoint.pt")
-    device = torch.device(conf["eval_device"])
+    model_path = os.path.join(conf["filepath"]["save_path"], "checkpoint.pt")
+    device = torch.device(conf["model"]["eval_device"])
     model = TaxonClassifier.TaxonModel(
-        vocab_size=conf["vocab_size"],
-        embedding_size=conf["embedding_size"],
-        hidden_size=conf["hidden_size"],
+        vocab_size=conf["model"]["vocab_size"],
+        embedding_size=conf["model"]["embedding_size"],
+        hidden_size=conf["model"]["hidden_size"],
         device=device,
-        max_len=conf["max_len"],
-        num_layers=conf["num_layers"],
-        num_class=conf["num_class"],
-        drop_out=conf["drop_prob"],
+        max_len=conf["model"]["max_len"],
+        num_layers=conf["model"]["num_layers"],
+        num_class=conf["model"]["num_class"],
+        drop_out=conf["model"]["drop_prob"],
     )
     if os.path.exists(model_path) is True:
         logger.info("Loading existing model state_dict......")
@@ -129,9 +129,9 @@ def benchmark_main():
         raise Exception("Can't run benchmark without existing model!")
 
     logger.info("Loading dict files......")
-    all_dict = Dataset.Dictionary(conf["KmerFilePath"], conf["TaxonFilePath"])
+    all_dict = Dataset.Dictionary(conf["filepath"]["KmerFilePath"], conf["filepath"]["TaxonFilePath"])
     logger.info("Loading files2taxon.txt")
-    file_path = conf["BenchmarkFile2Taxon"]
+    file_path = conf["filepath"]["BenchmarkFile2Taxon"]
     file2taxon = {}
     num_files = 0
     with open(file_path, "r") as f:
