@@ -291,7 +291,8 @@ def predict_one_file(
     outputs = []
     file_path = os.path.join(conf["filepath"]["PredictFilePath"], file)
     output_path = os.path.join(
-        conf["filepath"]["OutputPath"], file.split(".")[0], ".csv"
+        conf["filepath"]["OutputPath"],
+        f"{file.split('.')[0]}.csv",
     )
     with open(file_path, "r") as handle:
         for rec in SeqIO.parse(handle, "fasta"):
