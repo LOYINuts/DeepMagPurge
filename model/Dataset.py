@@ -102,7 +102,7 @@ class PredictSeqDataset(Dataset):
         """核心窗口处理函数"""
         end_pos = start_pos + self.sub_seq_len
         sub_seq = seq[start_pos:end_pos]
-        return torch.tensor(
+        return torch.as_tensor(
             DataProcess.seq2kmer(
                 seq=sub_seq,
                 k=self.k,

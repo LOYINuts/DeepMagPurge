@@ -107,6 +107,7 @@ def train_setup(conf, logger: logging.Logger):
     for epoch in range(conf["model"]["epoch"]):
         logger.info(msg="-" * 30 + f"EPOCH {epoch}" + "-" * 30)
         for file in files:
+            idx = 0
             full_path = os.path.join(conf["filepath"]["TrainDataPath"], file)
             train_dataset = Dataset.PQSeqDataset(
                 input_path=full_path,
@@ -119,6 +120,7 @@ def train_setup(conf, logger: logging.Logger):
             )
             logger.info(f"Using {file} to train...")
             train(
+                idx=idx,
                 epochs=1,
                 net=model,
                 trainDataLoader=train_dataloader,
@@ -129,12 +131,14 @@ def train_setup(conf, logger: logging.Logger):
                 save_path=conf["filepath"]["save_path"],
                 logger=logger,
             )
+            idx = (idx + 1) % 2
             logger.info("-" * 80)
     logger.info("End Training")
     logger.info("#" * 80)
 
 
 def train(
+    idx: int,
     epochs: int,
     net: torch.nn.Module,
     trainDataLoader: DataLoader,
@@ -238,7 +242,7 @@ def train(
                         conf_avg_acc.item(),
                     )
                 )
-        model_save_path = os.path.join(save_path, "checkpoint.pt")
+        model_save_path = os.path.join(save_path, f"checkpoint_{idx}.pt")
         with open(model_save_path, "wb") as f:
             torch.save(net.state_dict(), f)
 
@@ -337,6 +341,7 @@ def predict_files(conf, logger: logging.Logger):
         raise Exception("Can't run predict due to there is no existing model!")
     files = os.listdir(conf["filepath"]["PredictFilePath"])
     for file in files:
+        logger.info(f"predicting {file}")
         predict_one_file(
             model=model, file=file, conf=conf, all_dict=all_dict, device=device
         )
