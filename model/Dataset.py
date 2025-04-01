@@ -86,7 +86,7 @@ class PredictSeqDataset(Dataset):
         """智能生成窗口策略"""
         total_possible = len(seq) - self.sub_seq_len + 1
         # 短序列模式：全量滑动窗口
-        start_index = random.randint(0, self.sub_seq_len - 1)
+        start_index = random.randint(0, total_possible - 1)
         if len(seq) <= self.threshold:
             return [
                 self._process_window(seq, i)
