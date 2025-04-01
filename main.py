@@ -306,6 +306,7 @@ def predict_one_file(
             )
             top3 = pred.Top3Taxon
             row = {
+                "contig": rec.id,
                 "Taxon": pred.Taxon,
                 "Confidence": pred.Confidence,
                 "Threshold": pred.Threshold,
