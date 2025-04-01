@@ -106,8 +106,8 @@ def train_setup(conf, logger: logging.Logger):
 
     for epoch in range(conf["model"]["epoch"]):
         logger.info(msg="-" * 30 + f"EPOCH {epoch}" + "-" * 30)
+        idx = 0
         for file in files:
-            idx = 0
             full_path = os.path.join(conf["filepath"]["TrainDataPath"], file)
             train_dataset = Dataset.PQSeqDataset(
                 input_path=full_path,
