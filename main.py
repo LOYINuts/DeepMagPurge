@@ -11,6 +11,13 @@ import numpy as np
 import random
 
 
+class PredOutput:
+    def __init__(self, taxon: int = -1, confidence: bool = False, top3taxon: list = []):
+        self.Taxon = taxon
+        self.Confidence = confidence
+        self.Top3Taxon = top3taxon
+
+
 def setup_model(conf, device):
     model = TaxonClassifier.TaxonModel(
         vocab_size=conf["vocab_size"],
@@ -76,7 +83,7 @@ def train_setup(conf, logger: logging.Logger):
 
     model_path = os.path.join(conf["filepath"]["save_path"], "checkpoint.pt")
     train_device = torch.device(conf["model"]["train_device"])
-    model = setup_model(conf=conf, device=train_device)
+    model = setup_model(conf=conf["model"], device=train_device)
     # 打乱文件顺序
     files = os.listdir(conf["filepath"]["TrainDataPath"])
     random.shuffle(files)
@@ -227,17 +234,18 @@ def train(
         with open(model_save_path, "wb") as f:
             torch.save(net.state_dict(), f)
 
+
 def predict_one_record(
     model: torch.nn.Module,
-    seq_data: DataLoader,
+    seq_dataloader: DataLoader,
     device: torch.device,
     threshold: float = 0.5,
-) -> dict:
+) -> PredOutput:
     model.eval()
     weighted_probs = 0
     total_weight = 0
     with torch.no_grad():
-        for seq in seq_data:
+        for seq in seq_dataloader:
             seq = seq.to(device)
             logits = model(seq)
             probs = torch.softmax(logits, dim=1)
@@ -251,29 +259,22 @@ def predict_one_record(
     # 置信度决策逻辑
     max_prob_idx = np.argmax(avg_probs)
     max_prob = avg_probs[max_prob_idx]
-
-    if max_prob >= threshold:
-        return {
-            "prediction": int(max_prob_idx),
-            "confidence": float(max_prob),
-            "status": "high_confidence",
-        }
-    else:
-        top3_indices = np.argsort(avg_probs)[-3:][::-1]
-        top3_probs = avg_probs[top3_indices]
-        return {
-            "top3": [
-                {"class": int(idx), "prob": float(prob)}
-                for idx, prob in zip(top3_indices, top3_probs)
-            ],
-            "confidence": float(max_prob),
-            "status": "low_confidence",
-        }
+    # 取预测可能性最高的3个结果
+    top3_indices = np.argsort(avg_probs)[-3:][::-1]
+    top3_probs = avg_probs[top3_indices]
+    return PredOutput(
+        taxon=int(max_prob_idx),
+        confidence=(max_prob >= threshold),
+        top3taxon=[
+            {"taxon": int(idx), "prob": float(prob)}
+            for idx, prob in zip(top3_indices, top3_probs)
+        ],
+    )
 
 
 def predict_one_file(
     model: torch.nn.Module,
-    file,
+    file: str,
     conf,
     all_dict: Dataset.Dictionary,
     device: torch.device,
@@ -281,22 +282,26 @@ def predict_one_file(
     with open(file, "r") as handle:
         for rec in SeqIO.parse(handle, "fasta"):
             rec_dataset = Dataset.PredictSeqDataset(
-                k=conf["kmer"],
+                k=conf["model"]["kmer"],
                 all_dict=all_dict,
                 record=rec,
             )
             rec_dataloader = DataLoader(rec_dataset, batch_size=128, shuffle=False)
-            prediction = predict_one_record(
-                model=model, seq_data=rec_dataloader, device=device
-            )
+            pred = predict_one_record(model=model,seq_dataloader=rec_dataloader,device=device)
+
 
 
 def predict_files(conf, logger: logging.Logger):
-    model_path = os.path.join(conf["save_path"], "checkpoint.pt")
-    device = torch.device(conf["device"])
+    model_path = os.path.join(conf["filepath"]["save_path"], "checkpoint.pt")
+    device = torch.device(conf["model"]["eval_device"])
     model = setup_model(conf, device)
-    all_dict = Dataset.Dictionary(conf["KmerFilePath"], conf["TaxonFilePath"])
-    load_model(model_path=model_path, model=model, device=device, logger=logger)
+    all_dict = Dataset.Dictionary(
+        conf["filepath"]["KmerFilePath"], conf["filepath"]["TaxonFilePath"]
+    )
+    ok = load_model(model_path=model_path, model=model, device=device, logger=logger)
+    if ok is False:
+        logger.info("Can't run predict due to there is no existing model!")
+        raise Exception("Can't run predict due to there is no existing model!")
 
 
 def main():
@@ -304,8 +309,8 @@ def main():
     parser.add_argument(
         "--config",
         type=str,
-        default="./data/config.yaml",
-        help="path to config yaml file",
+        default="./data/config.toml",
+        help="path to config toml file",
     )
     parser.add_argument(
         "--mode",

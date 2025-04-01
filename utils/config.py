@@ -8,10 +8,10 @@ def load_config(config_file):
     """
     try:
         with open(config_file, "r") as f:
-            # 使用 yaml.safe_load 方法加载 YAML 文件内容
+            # 使用 toml 加载配置
             config = toml.load(f)
         return config
     except FileNotFoundError:
         print(f"配置文件 {config_file} 未找到，请检查文件路径。")
     except Exception as e:
-        print(f"解析 YAML 文件时出错: {e}")
+        print(f"解析 toml 文件时出错: {e}")

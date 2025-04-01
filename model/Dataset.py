@@ -5,6 +5,7 @@ from tqdm import tqdm
 import torch
 import numpy as np
 import polars as pl
+import random
 
 
 def file2data(filepath: str) -> tuple[list[torch.Tensor], list[int]]:
@@ -20,7 +21,7 @@ def file2data(filepath: str) -> tuple[list[torch.Tensor], list[int]]:
     DataTensor = []
     Labels = []
     pldata = pl.read_parquet(filepath)
-    pbar = tqdm(pldata.iter_rows(),desc="Processing parquet", total=len(pldata))
+    pbar = tqdm(pldata.iter_rows(), desc="Processing parquet", total=len(pldata))
     for row in pbar:
         label, kmer = int(row[0]), torch.as_tensor(row[1])
         DataTensor.append(kmer)
@@ -85,10 +86,11 @@ class PredictSeqDataset(Dataset):
         """智能生成窗口策略"""
         total_possible = len(seq) - self.sub_seq_len + 1
         # 短序列模式：全量滑动窗口
+        start_index = random.randint(0, self.sub_seq_len - 1)
         if len(seq) <= self.threshold:
             return [
                 self._process_window(seq, i)
-                for i in range(0, total_possible, self.step)
+                for i in range(start_index, total_possible, self.step)
             ]
 
         # 长序列模式：随机采样

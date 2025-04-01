@@ -25,14 +25,16 @@ def setup_logger(name: str, log_file: str, level=logging.INFO):
 
 
 if __name__ == "__main__":
-    conf = config.load_config("./data/config.yaml")
+    conf = config.load_config("./data/config.toml")
     logger = setup_logger("mylogger", "logs/gen_data.log")
     if conf is None:
         raise Exception("Error loading configuration")
-    if os.path.exists(conf["TrainDataPath"]) is False:
-        os.makedirs(conf["TrainDataPath"])
-    all_dict = Dataset.Dictionary(conf["KmerFilePath"], conf["TaxonFilePath"])
-    data = pl.read_parquet(conf["TempParquet"])
+    if os.path.exists(conf["filepath"]["TrainDataPath"]) is False:
+        os.makedirs(conf["filepath"]["TrainDataPath"])
+    all_dict = Dataset.Dictionary(
+        conf["filepath"]["KmerFilePath"], conf["filepath"]["TaxonFilePath"]
+    )
+    data = pl.read_parquet(conf["filepath"]["TempParquet"])
     data = data.sample(n=len(data), shuffle=True)
     logger.info("parquet file loaded")
     # 分批次处理数据
@@ -49,9 +51,9 @@ if __name__ == "__main__":
             label, seq = int(row[0]), str(row[1])
             kmer_list = DataProcess.seq2kmer(
                 seq=seq,
-                k=conf["kmer"],
+                k=conf["model"]["kmer"],
                 word2idx=all_dict.kmer2idx,
-                max_len=conf["max_len"],
+                max_len=conf["model"]["max_len"],
                 trim=True,
             )
             data_list.append([label, kmer_list])
@@ -60,7 +62,7 @@ if __name__ == "__main__":
             data_list, schema=["label", "kmer"], orient="row"
         )
         file_path = os.path.join(
-            conf["TrainDataPath"], f"train_data_{batch_idx}.parquet"
+            conf["filepath"]["TrainDataPath"], f"train_data_{batch_idx}.parquet"
         )
         processed_batch.write_parquet(file_path)
         logger.info(f"train_data_{batch_idx}.parquet complete")
