@@ -107,7 +107,7 @@ def train_setup(conf, logger: logging.Logger):
     for epoch in range(conf["model"]["epoch"]):
         logger.info(msg="-" * 30 + f"EPOCH {epoch}" + "-" * 30)
         idx = 0
-        for file in files:
+        for i, file in enumerate(files):
             full_path = os.path.join(conf["filepath"]["TrainDataPath"], file)
             train_dataset = Dataset.PQSeqDataset(
                 input_path=full_path,
@@ -120,7 +120,6 @@ def train_setup(conf, logger: logging.Logger):
             )
             logger.info(f"Using {file} to train...")
             train(
-                idx=idx,
                 epochs=1,
                 net=model,
                 trainDataLoader=train_dataloader,
@@ -128,17 +127,22 @@ def train_setup(conf, logger: logging.Logger):
                 lossF=lossF,
                 optimizer=optimizer,
                 scheduler=scheduler,
-                save_path=conf["filepath"]["save_path"],
                 logger=logger,
             )
-            idx = (idx + 1) % 2
+            if i % 5 == 0:
+                logger.info(f"Saving model as checkpoint_{idx}.pt")
+                model_save_path = os.path.join(
+                    conf["filepath"]["save_path"], f"checkpoint_{idx}.pt"
+                )
+                with open(model_save_path, "wb") as f:
+                    torch.save(model.state_dict(), f)
+                idx = (idx + 1) % 2
             logger.info("-" * 80)
     logger.info("End Training")
     logger.info("#" * 80)
 
 
 def train(
-    idx: int,
     epochs: int,
     net: torch.nn.Module,
     trainDataLoader: DataLoader,
@@ -146,7 +150,6 @@ def train(
     lossF: torch.nn.modules.loss._WeightedLoss,
     optimizer: torch.optim.Optimizer,
     scheduler: torch.optim.lr_scheduler.CosineAnnealingLR,
-    save_path: str,
     logger: logging.Logger,
     threshold: float = 0.5,
 ):
@@ -219,10 +222,6 @@ def train(
                         conf_acc.item(),
                     )
                 )
-            if step % (data_length // 10) == 0:
-                model_save_path = os.path.join(save_path, "checkpoint.pt")
-                with open(model_save_path, "wb") as f:
-                    torch.save(net.state_dict(), f)
             if step == data_length - 1:
                 # 显示置信度为50%的准确率
                 if num_conf_samples > 0:
@@ -242,9 +241,6 @@ def train(
                         conf_avg_acc.item(),
                     )
                 )
-        model_save_path = os.path.join(save_path, f"checkpoint_{idx}.pt")
-        with open(model_save_path, "wb") as f:
-            torch.save(net.state_dict(), f)
 
 
 def predict_one_record(
