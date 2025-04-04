@@ -10,6 +10,7 @@ from Bio import SeqIO
 import numpy as np
 import random
 import polars as pl
+from collections import defaultdict
 
 
 class PredOutput:
@@ -88,7 +89,8 @@ def train_setup(conf, logger: logging.Logger):
     :param conf: 配置信息对象
     :param logger: 日志记录器，用于记录准备过程中的信息
     """
-
+    logger.info("#" * 80)
+    logger.info("#" * 80)
     model_path = os.path.join(conf["filepath"]["save_path"], "checkpoint.pt")
     train_device = torch.device(conf["model"]["train_device"])
     model = setup_model(conf=conf["model"], device=train_device)
@@ -129,7 +131,7 @@ def train_setup(conf, logger: logging.Logger):
                 scheduler=scheduler,
                 logger=logger,
             )
-            if i % 5 == 0:
+            if i % 10 == 0:
                 logger.info(f"Saving model as checkpoint_{idx}.pt")
                 model_save_path = os.path.join(
                     conf["filepath"]["save_path"], f"checkpoint_{idx}.pt"
@@ -286,13 +288,18 @@ def predict_one_file(
     conf,
     all_dict: Dataset.Dictionary,
     device: torch.device,
+    logger: logging.Logger,
 ):
     outputs = []
+    # 使用 defaultdict 按 Taxo n 分组存储 SeqRecord 对象
+    taxon_to_records = defaultdict(list)
     file_path = os.path.join(conf["filepath"]["PredictFilePath"], file)
-    output_path = os.path.join(
+    csv_output_path = os.path.join(
         conf["filepath"]["OutputPath"],
-        f"{file.split('.')[0]}.csv",
+        f"{os.path.splitext(file)[0]}.csv",
     )
+    fillter_output_path = os.path.join(conf["filepath"]["OutputPath"], "filltered")
+    os.makedirs(fillter_output_path, exist_ok=True)
     with open(file_path, "r") as handle:
         for rec in SeqIO.parse(handle, "fasta"):
             rec_dataset = Dataset.PredictSeqDataset(
@@ -317,9 +324,19 @@ def predict_one_file(
                 "Top3_Taxon": top3[2]["taxon"],
                 "Top3_Prob": top3[2]["prob"],
             }
+            taxon_to_records[pred.Taxon].append(rec)
             outputs.append(row)
     df = pl.DataFrame(outputs)
-    df.write_csv(output_path)
+    logger.info(f"writing {os.path.splitext(file)[0]}.csv")
+    df.write_csv(csv_output_path)
+    logger.info("writing filttered files")
+    for taxon, records in taxon_to_records.items():
+        safe_taxon = "".join(c if c.isalnum() else "_" for c in taxon)
+        output_path = os.path.join(
+            fillter_output_path, f"{os.path.splitext(file)[0]}_{safe_taxon}.fasta"
+        )
+        with open(output_path, "w") as output_handle:
+            SeqIO.write(records, output_handle, "fasta")
 
 
 def predict_files(conf, logger: logging.Logger):
@@ -338,7 +355,12 @@ def predict_files(conf, logger: logging.Logger):
     for file in files:
         logger.info(f"predicting {file}")
         predict_one_file(
-            model=model, file=file, conf=conf, all_dict=all_dict, device=device
+            model=model,
+            file=file,
+            conf=conf,
+            all_dict=all_dict,
+            device=device,
+            logger=logger,
         )
         logger.info(f"predict {file} complete.")
 
