@@ -314,7 +314,7 @@ def predict_one_file(
                 model=model, seq_dataloader=rec_dataloader, device=device
             )
             top3 = pred.Top3Taxon
-            taxonomy = all_dict.idx2taxon[pred.Taxon]
+            taxonomy = all_dict.idx2taxon[str(pred.Taxon)]
             row = {
                 "contig": rec.id,
                 "Taxon_id": pred.Taxon,
@@ -335,7 +335,7 @@ def predict_one_file(
     df.write_csv(csv_output_path)
     logger.info("writing filttered files")
     for taxon, records in taxon_to_records.items():
-        taxon_name = all_dict.idx2taxon[taxon]
+        taxon_name = all_dict.idx2taxon[str(taxon)]
         safe_taxon = "".join(c if c.isalnum() else "_" for c in taxon_name)
         output_path = os.path.join(
             fillter_output_path, f"{os.path.splitext(file)[0]}_{safe_taxon}.fasta"
