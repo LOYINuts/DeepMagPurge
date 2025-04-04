@@ -32,7 +32,7 @@ def file2data(filepath: str) -> tuple[list[torch.Tensor], list[int]]:
 class Dictionary:
     def __init__(self, kmer_file_path: str, taxon_file_path: str):
         self.kmer2idx = DataProcess.TransferKmer2Idx(kmer_file_path)
-        self.taxon2idx = DataProcess.TransferTaxon2Idx(taxon_file_path)
+        self.taxon2idx,self.idx2taxon = DataProcess.TransferTaxon2Idx(taxon_file_path)
 
 
 class PQSeqDataset(Dataset):

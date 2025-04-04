@@ -44,7 +44,7 @@ def TransferKmer2Idx(word_file_path: str):
     return word2idx
 
 
-def TransferTaxon2Idx(taxon_file_path: str) -> dict:
+def TransferTaxon2Idx(taxon_file_path: str) -> tuple[dict, dict]:
     """物种词典
 
     Args:
@@ -55,13 +55,15 @@ def TransferTaxon2Idx(taxon_file_path: str) -> dict:
     """
     with open(taxon_file_path, "r") as fin:
         taxon2idx = {}
+        idx2taxon = {}
         for line in fin:
             line = line.strip()
             splits = line.split()
             taxon, idx = splits[0], splits[1]
             taxon2idx[taxon] = idx
+            idx2taxon[idx] = taxon
 
-    return taxon2idx
+    return taxon2idx,idx2taxon
 
 
 def Trim_seq(seq: str, min_trim=0, max_trim=75, ori_seq_len=150):

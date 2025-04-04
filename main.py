@@ -298,7 +298,9 @@ def predict_one_file(
         conf["filepath"]["OutputPath"],
         f"{os.path.splitext(file)[0]}.csv",
     )
-    fillter_output_path = os.path.join(conf["filepath"]["OutputPath"], "filltered")
+    fillter_output_path = os.path.join(
+        conf["filepath"]["OutputPath"], "filltered", f"{os.path.splitext(file)[0]}"
+    )
     os.makedirs(fillter_output_path, exist_ok=True)
     with open(file_path, "r") as handle:
         for rec in SeqIO.parse(handle, "fasta"):
@@ -312,9 +314,11 @@ def predict_one_file(
                 model=model, seq_dataloader=rec_dataloader, device=device
             )
             top3 = pred.Top3Taxon
+            taxonomy = all_dict.idx2taxon[pred.Taxon]
             row = {
                 "contig": rec.id,
-                "Taxon": pred.Taxon,
+                "Taxon_id": pred.Taxon,
+                "Taxonomy": taxonomy,
                 "Confidence": pred.Confidence,
                 "Threshold": pred.Threshold,
                 "Top1_Taxon": top3[0]["taxon"],
@@ -331,7 +335,8 @@ def predict_one_file(
     df.write_csv(csv_output_path)
     logger.info("writing filttered files")
     for taxon, records in taxon_to_records.items():
-        safe_taxon = "".join(c if c.isalnum() else "_" for c in taxon)
+        taxon_name = all_dict.idx2taxon[taxon]
+        safe_taxon = "".join(c if c.isalnum() else "_" for c in taxon_name)
         output_path = os.path.join(
             fillter_output_path, f"{os.path.splitext(file)[0]}_{safe_taxon}.fasta"
         )
