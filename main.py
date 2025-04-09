@@ -251,19 +251,17 @@ def predict_one_record(
     threshold: float = 0.5,
 ) -> PredOutput:
     model.eval()
-    weighted_probs = 0
-    total_weight = 0
+    total_probs = 0
+    num_samples = 0
     with torch.no_grad():
         for seq in seq_dataloader:
             seq = seq.to(device)
             logits = model(seq)
             probs = torch.softmax(logits, dim=1)
-            # 动态计算权重（基于每个样本的预测置信度）
-            sample_weights, _ = torch.max(probs, dim=1)  # 获取每个样本的最大概率
-            weighted_probs += torch.sum(probs * sample_weights.unsqueeze(1), dim=0)
-            total_weight += torch.sum(sample_weights)
+            total_probs += torch.sum(probs, dim=0)  # 直接累加概率
+            num_samples += probs.size(0)  # 累加样本数量
 
-    avg_probs = torch.as_tensor(weighted_probs / total_weight).cpu().numpy()
+    avg_probs = torch.as_tensor(total_probs / num_samples).cpu().numpy()
 
     # 置信度决策逻辑
     max_prob_idx = np.argmax(avg_probs)
