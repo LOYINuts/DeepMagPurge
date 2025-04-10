@@ -1,3 +1,4 @@
+import logging.handlers
 import torch.optim.nadam
 from utils import config, benchmark
 import torch
@@ -9,7 +10,6 @@ import logging
 from Bio import SeqIO
 import numpy as np
 import random
-import polars as pl
 from collections import defaultdict
 
 
@@ -72,7 +72,9 @@ def setup_logger(name: str, log_file: str, level=logging.INFO):
     :param log_file: 日志文件的路径
     :param level: 日志记录的级别，默认为INFO
     """
-    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    formatter = logging.Formatter(
+        "%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M"
+    )
     handler = logging.FileHandler(log_file)
     handler.setFormatter(formatter)
 
@@ -288,61 +290,62 @@ def predict_one_file(
     device: torch.device,
     logger: logging.Logger,
 ):
-    outputs = []
-    # 使用 defaultdict 按 Taxo n 分组存储 SeqRecord 对象
-    taxon_to_records = defaultdict(list)
-    file_path = os.path.join(conf["filepath"]["PredictFilePath"], file)
-    csv_output_path = os.path.join(
-        conf["filepath"]["OutputPath"],
-        f"{os.path.splitext(file)[0]}.csv",
-    )
-    fillter_output_path = os.path.join(
-        conf["filepath"]["OutputPath"], "filltered", f"{os.path.splitext(file)[0]}"
-    )
+    # 使用defaultdict按Taxon分组存储SeqRecord对象和预测信息
+    taxon_info = defaultdict(lambda: {"records": [], "count": 0})
+    file_path = os.path.join(conf["predict"]["PredictFilePath"], file)
+    fillter_output_path = os.path.join(conf["predict"]["OutputPath"], "filtered")
     os.makedirs(fillter_output_path, exist_ok=True)
+
     with open(file_path, "r") as handle:
         for rec in SeqIO.parse(handle, "fasta"):
             rec_dataset = Dataset.PredictSeqDataset(
                 k=conf["model"]["kmer"],
                 all_dict=all_dict,
                 record=rec,
+                sub_seq_len=conf["model"]["max_len"],
             )
-            rec_dataloader = DataLoader(rec_dataset, batch_size=128, shuffle=False)
+            rec_dataloader = DataLoader(rec_dataset, batch_size=64, shuffle=False)
             pred = predict_one_record(
                 model=model, seq_dataloader=rec_dataloader, device=device
             )
-            top3 = pred.Top3Taxon
-            taxonomy = all_dict.idx2taxon[str(pred.Taxon)]
-            row = {
-                "contig": rec.id,
-                "Taxon_id": pred.Taxon,
-                "Taxonomy": taxonomy,
-                "Confidence": pred.Confidence,
-                "Threshold": pred.Threshold,
-                "Top1_Taxon": top3[0]["taxon"],
-                "Top1_Prob": top3[0]["prob"],
-                "Top2_Taxon": top3[1]["taxon"],
-                "Top2_Prob": top3[1]["prob"],
-                "Top3_Taxon": top3[2]["taxon"],
-                "Top3_Prob": top3[2]["prob"],
-            }
-            taxon_to_records[pred.Taxon].append(rec)
-            outputs.append(row)
-    df = pl.DataFrame(outputs)
-    logger.info(f"writing {os.path.splitext(file)[0]}.csv")
-    df.write_csv(csv_output_path)
-    logger.info("writing filttered files")
-    for taxon, records in taxon_to_records.items():
-        taxon_name = all_dict.idx2taxon[str(taxon)]
-        safe_taxon = "".join(c if c.isalnum() else "_" for c in taxon_name)
+            taxon_info[pred.Taxon]["records"].append((rec, pred))
+            taxon_info[pred.Taxon]["count"] += 1
+
+    # 1. 确定出现次数最多的taxon
+    if taxon_info:
+        main_taxon = max(taxon_info.keys(), key=lambda x: taxon_info[x]["count"])
+    else:
+        main_taxon = None
+
+    # 2. 筛选记录
+    filtered_records = []
+    for taxon, info in taxon_info.items():
+        for rec, pred in info["records"]:
+            # 保留条件：属于主要taxon 或 不属于但confidence为False
+            if taxon == main_taxon or not pred.Confidence:
+                filtered_records.append(rec)
+
+    # 写入筛选后的fasta文件
+    logger.info("writing filtered file")
+    if main_taxon is not None:
         output_path = os.path.join(
-            fillter_output_path, f"{os.path.splitext(file)[0]}_{safe_taxon}.fasta"
+            fillter_output_path, f"{os.path.splitext(file)[0]}_filtered.fasta"
         )
         with open(output_path, "w") as output_handle:
-            SeqIO.write(records, output_handle, "fasta")
+            SeqIO.write(filtered_records, output_handle, "fasta")
 
 
 def predict_files(conf, logger: logging.Logger):
+    # 添加控制台输出
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    formatter = logging.Formatter(
+        "[DeepMAGPurge] %(asctime)s-%(levelname)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M",
+    )
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
     model_path = os.path.join(conf["filepath"]["save_path"], "checkpoint.pt")
     device = torch.device(conf["model"]["eval_device"])
     logger.info("setup model......")
@@ -354,9 +357,8 @@ def predict_files(conf, logger: logging.Logger):
     ok = load_model(model_path=model_path, model=model, device=device, logger=logger)
     if ok is False:
         raise Exception("Can't run predict due to there is no existing model!")
-    files = os.listdir(conf["filepath"]["PredictFilePath"])
+    files = os.listdir(conf["predict"]["PredictFilePath"])
     for file in files:
-        logger.info(f"predicting {file}")
         predict_one_file(
             model=model,
             file=file,

@@ -61,7 +61,7 @@ class PredictSeqDataset(Dataset):
         record,
         sub_seq_len=150,
         step=75,
-        max_samples=100,
+        max_samples=200,
         threshold=5000,
     ) -> None:
         self.k = k
