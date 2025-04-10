@@ -10,6 +10,7 @@ import numpy as np
 import random
 import polars as pl
 from collections import defaultdict
+from tqdm import tqdm
 
 
 class PredOutput:
@@ -294,14 +295,16 @@ def predict_one_file(
     taxon_info = defaultdict(lambda: {"records": [], "count": 0})
     file_path = os.path.join(conf["predict"]["PredictFilePath"], file)
     csv_output_path = os.path.join(
-        conf["filepath"]["OutputPath"],
+        conf["predict"]["OutputPath"],
+        "predict",
         f"{os.path.splitext(file)[0]}.csv",
     )
     fillter_output_path = os.path.join(conf["predict"]["OutputPath"], "filtered")
     os.makedirs(fillter_output_path, exist_ok=True)
-
+    # counts = 0
     with open(file_path, "r") as handle:
         for rec in SeqIO.parse(handle, "fasta"):
+            # counts += 1
             rec_dataset = Dataset.PredictSeqDataset(
                 k=conf["model"]["kmer"],
                 all_dict=all_dict,
@@ -310,7 +313,10 @@ def predict_one_file(
             )
             rec_dataloader = DataLoader(rec_dataset, batch_size=64, shuffle=False)
             pred = predict_one_record(
-                model=model, seq_dataloader=rec_dataloader, device=device
+                model=model,
+                seq_dataloader=rec_dataloader,
+                device=device,
+                threshold=conf["predict"]["threshold"],
             )
             top3 = pred.Top3Taxon
             taxonomy = all_dict.idx2taxon[str(pred.Taxon)]
@@ -332,14 +338,13 @@ def predict_one_file(
             outputs.append(row)
 
     df = pl.DataFrame(outputs)
-    logger.info(f"writing {os.path.splitext(file)[0]}.csv")
     df.write_csv(csv_output_path)
     # 1. 确定出现次数最多的taxon
     if taxon_info:
         main_taxon = max(taxon_info.keys(), key=lambda x: taxon_info[x]["count"])
     else:
         main_taxon = None
-
+    
     # 2. 筛选记录
     filtered_records = []
     for taxon, info in taxon_info.items():
@@ -349,26 +354,15 @@ def predict_one_file(
                 filtered_records.append(rec)
 
     # 写入筛选后的fasta文件
-    logger.info("writing filtered file")
     if main_taxon is not None:
         output_path = os.path.join(
-            fillter_output_path, f"{os.path.splitext(file)[0]}_filtered.fasta"
+            fillter_output_path, f"{os.path.splitext(file)[0]}_filtered.fa"
         )
         with open(output_path, "w") as output_handle:
             SeqIO.write(filtered_records, output_handle, "fasta")
 
 
 def predict_files(conf, logger: logging.Logger):
-    # 添加控制台输出
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    formatter = logging.Formatter(
-        "[DeepMAGPurge] %(asctime)s %(levelname)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M",
-    )
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
     model_path = os.path.join(conf["filepath"]["save_path"], "checkpoint.pt")
     device = torch.device(conf["model"]["eval_device"])
     logger.info("setup model......")
@@ -381,7 +375,8 @@ def predict_files(conf, logger: logging.Logger):
     if ok is False:
         raise Exception("Can't run predict due to there is no existing model!")
     files = os.listdir(conf["predict"]["PredictFilePath"])
-    for file in files:
+    pbar = tqdm(files, desc="Processing")
+    for file in pbar:
         predict_one_file(
             model=model,
             file=file,
