@@ -1,5 +1,3 @@
-import logging.handlers
-import torch.optim.nadam
 from utils import config, benchmark
 import torch
 import os
@@ -10,6 +8,7 @@ import logging
 from Bio import SeqIO
 import numpy as np
 import random
+import polars as pl
 from collections import defaultdict
 
 
@@ -290,9 +289,14 @@ def predict_one_file(
     device: torch.device,
     logger: logging.Logger,
 ):
+    outputs = []
     # 使用defaultdict按Taxon分组存储SeqRecord对象和预测信息
     taxon_info = defaultdict(lambda: {"records": [], "count": 0})
     file_path = os.path.join(conf["predict"]["PredictFilePath"], file)
+    csv_output_path = os.path.join(
+        conf["filepath"]["OutputPath"],
+        f"{os.path.splitext(file)[0]}.csv",
+    )
     fillter_output_path = os.path.join(conf["predict"]["OutputPath"], "filtered")
     os.makedirs(fillter_output_path, exist_ok=True)
 
@@ -308,9 +312,28 @@ def predict_one_file(
             pred = predict_one_record(
                 model=model, seq_dataloader=rec_dataloader, device=device
             )
+            top3 = pred.Top3Taxon
+            taxonomy = all_dict.idx2taxon[str(pred.Taxon)]
+            row = {
+                "contig": rec.id,
+                "Taxon_id": pred.Taxon,
+                "Taxonomy": taxonomy,
+                "Confidence": pred.Confidence,
+                "Threshold": pred.Threshold,
+                "Top1_Taxon": top3[0]["taxon"],
+                "Top1_Prob": top3[0]["prob"],
+                "Top2_Taxon": top3[1]["taxon"],
+                "Top2_Prob": top3[1]["prob"],
+                "Top3_Taxon": top3[2]["taxon"],
+                "Top3_Prob": top3[2]["prob"],
+            }
             taxon_info[pred.Taxon]["records"].append((rec, pred))
             taxon_info[pred.Taxon]["count"] += 1
+            outputs.append(row)
 
+    df = pl.DataFrame(outputs)
+    logger.info(f"writing {os.path.splitext(file)[0]}.csv")
+    df.write_csv(csv_output_path)
     # 1. 确定出现次数最多的taxon
     if taxon_info:
         main_taxon = max(taxon_info.keys(), key=lambda x: taxon_info[x]["count"])
@@ -340,7 +363,7 @@ def predict_files(conf, logger: logging.Logger):
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
     formatter = logging.Formatter(
-        "[DeepMAGPurge] %(asctime)s-%(levelname)s: %(message)s",
+        "[DeepMAGPurge] %(asctime)s %(levelname)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M",
     )
     console_handler.setFormatter(formatter)
