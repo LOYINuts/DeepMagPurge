@@ -299,18 +299,24 @@ def predict_one_file(
         "predict",
         f"{os.path.splitext(file)[0]}.csv",
     )
+    os.makedirs(os.path.join(conf["predict"]["OutputPath"], "predict"), exist_ok=True)
     fillter_output_path = os.path.join(conf["predict"]["OutputPath"], "filtered")
     os.makedirs(fillter_output_path, exist_ok=True)
     # counts = 0
     with open(file_path, "r") as handle:
         for rec in SeqIO.parse(handle, "fasta"):
             # counts += 1
-            rec_dataset = Dataset.PredictSeqDataset(
-                k=conf["model"]["kmer"],
-                all_dict=all_dict,
-                record=rec,
-                sub_seq_len=conf["model"]["max_len"],
-            )
+            try:
+                rec_dataset = Dataset.PredictSeqDataset(
+                    k=conf["model"]["kmer"],
+                    all_dict=all_dict,
+                    record=rec,
+                    sub_seq_len=conf["model"]["max_len"],
+                )
+            except Exception as e:
+                logger.info("构建 predict 数据集错误")
+                logger.info(e)
+                continue
             rec_dataloader = DataLoader(rec_dataset, batch_size=64, shuffle=False)
             pred = predict_one_record(
                 model=model,
@@ -344,7 +350,7 @@ def predict_one_file(
         main_taxon = max(taxon_info.keys(), key=lambda x: taxon_info[x]["count"])
     else:
         main_taxon = None
-    
+
     # 2. 筛选记录
     filtered_records = []
     for taxon, info in taxon_info.items():
