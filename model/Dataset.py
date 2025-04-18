@@ -32,7 +32,7 @@ def file2data(filepath: str) -> tuple[list[torch.Tensor], list[int]]:
 class Dictionary:
     def __init__(self, kmer_file_path: str, taxon_file_path: str):
         self.kmer2idx = DataProcess.TransferKmer2Idx(kmer_file_path)
-        self.taxon2idx,self.idx2taxon = DataProcess.TransferTaxon2Idx(taxon_file_path)
+        self.taxon2idx, self.idx2taxon = DataProcess.TransferTaxon2Idx(taxon_file_path)
 
 
 class PQSeqDataset(Dataset):
@@ -78,9 +78,18 @@ class PredictSeqDataset(Dataset):
             self.Data = self._generate_windows(seq, max_samples)
             self.Data = torch.stack(self.Data)
         else:
-            raise ValueError(
-                f"Sequence length ({len(seq)}) is shorter than {sub_seq_len}"
-            )
+            # 不够长进行补足
+            self.Data = [
+                torch.as_tensor(
+                    DataProcess.seq2kmer(
+                        seq=seq,
+                        k=self.k,
+                        word2idx=self.all_dict.kmer2idx,
+                        max_len=self.sub_seq_len - self.k + 1,
+                    )
+                )
+            ]
+            self.Data = torch.stack(self.Data)
 
     def _generate_windows(self, seq: str, max_samples: int) -> list[torch.Tensor]:
         """智能生成窗口策略"""

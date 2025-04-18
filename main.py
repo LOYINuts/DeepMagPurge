@@ -314,7 +314,6 @@ def predict_one_file(
                     sub_seq_len=conf["model"]["max_len"],
                 )
             except Exception as e:
-                logger.info("构建 predict 数据集错误")
                 logger.info(e)
                 continue
             rec_dataloader = DataLoader(rec_dataset, batch_size=64, shuffle=False)
