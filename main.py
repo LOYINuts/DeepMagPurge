@@ -379,7 +379,9 @@ def predict_files(conf, logger: logging.Logger):
     ok = load_model(model_path=model_path, model=model, device=device, logger=logger)
     if ok is False:
         raise Exception("Can't run predict due to there is no existing model!")
-    files = os.listdir(conf["predict"]["PredictFilePath"])
+    files = [
+        f for f in os.listdir(conf["predict"]["PredictFilePath"]) if os.path.isfile(f)
+    ]
     pbar = tqdm(files, desc="Processing")
     for file in pbar:
         predict_one_file(
