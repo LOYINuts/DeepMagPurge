@@ -61,15 +61,13 @@ class PredictSeqDataset(Dataset):
         record,
         sub_seq_len=150,
         step=75,
-        max_samples=200,
-        threshold=5000,
+        max_samples=300,
     ) -> None:
         self.k = k
         self.name = record.id
         self.sub_seq_len = sub_seq_len
         self.step = step
         self.all_dict = all_dict
-        self.threshold = threshold
         self.Data = []
         seq = str(record.seq)
 
@@ -93,19 +91,17 @@ class PredictSeqDataset(Dataset):
 
     def _generate_windows(self, seq: str, max_samples: int) -> list[torch.Tensor]:
         """智能生成窗口策略"""
-        total_possible = len(seq) - self.sub_seq_len + 1
+        total_possible = max(0, (len(seq) - self.sub_seq_len) // self.step) + 1
         # 短序列模式：全量滑动窗口
-        start_index = random.randint(0, total_possible - 1)
-        if len(seq) <= self.threshold:
+        if total_possible <= max_samples:
             return [
-                self._process_window(seq, i)
-                for i in range(start_index, total_possible, self.step)
+                self._process_window(seq, i * self.step) for i in range(total_possible)
             ]
 
         # 长序列模式：随机采样
         sample_size = min(max_samples, total_possible)
         positions = np.random.choice(total_possible, size=sample_size, replace=False)
-        return [self._process_window(seq, pos) for pos in sorted(positions)]
+        return [self._process_window(seq, pos * self.step) for pos in sorted(positions)]
 
     def _process_window(self, seq: str, start_pos: int) -> torch.Tensor:
         """核心窗口处理函数"""

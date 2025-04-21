@@ -312,6 +312,8 @@ def predict_one_file(
                     all_dict=all_dict,
                     record=rec,
                     sub_seq_len=conf["model"]["max_len"],
+                    step=conf["predict"]["step"],
+                    max_samples=conf["predict"]["max_samples"]
                 )
             except Exception as e:
                 logger.info(e)
